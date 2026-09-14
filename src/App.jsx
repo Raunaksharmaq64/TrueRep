@@ -6,13 +6,13 @@ import DuelsPage from './components/DuelsPage';
 import ProfilePage from './components/ProfilePage';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('home');
 
   return (
     <div className="min-h-screen bg-[#03060d] text-white flex flex-col justify-between relative overflow-hidden select-none">
       <Navbar activeTab={activeTab} onSelectTab={setActiveTab} />
       <main className="flex-1 flex flex-col">
-        {activeTab === 'home' && <Hero />}
+        {activeTab === 'home' && <Hero onNavigate={setActiveTab} />}
         {activeTab === 'aicoach' && <AICoachPage />}
         {activeTab === 'duels' && <DuelsPage />}
         {activeTab === 'profile' && <ProfilePage />}

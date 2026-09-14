@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, ArrowRight } from 'lucide-react';
 import logoImg from '../assets/logo.png';
 
 export default function Navbar({ activeTab = 'home', onSelectTab }) {
@@ -85,10 +85,14 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
         </button>
       </nav>
 
-      {/* Right: Download App Button */}
+      {/* Right: Use Now Button with Arrow */}
       <div>
-        <button className="bg-[#0070F3] hover:bg-[#0060DF] text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-full hover:scale-105 active:scale-95 transition-all duration-300">
-          Download App
+        <button 
+          onClick={() => onSelectTab && onSelectTab('aicoach')}
+          className="bg-[#0070F3] hover:bg-[#0060DF] text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-full hover:scale-105 active:scale-95 transition-all duration-300 shadow-md flex items-center gap-2 group"
+        >
+          <span>Use Now</span>
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </button>
       </div>
     </header>
