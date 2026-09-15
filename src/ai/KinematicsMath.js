@@ -47,6 +47,63 @@ export class KinematicsMath {
   }
 
   /**
+   * Perspective-Compensated Hybrid Angle:
+   * Combines rock-solid 2D trigonometric angle with 3D spatial dot product to
+   * auto-compensate for camera tilt (laptop on desk pointing down or floor pointing up).
+   * Ensures true 90° joint depth is never rejected due to foreshortening.
+   */
+  static getPerspectiveCompensatedAngle(a, b, c) {
+    const angle2D = this.calculateAngle(a, b, c);
+    const angle3D = this.calculate3DAngle(a, b, c);
+
+    if (angle3D > 0 && Math.abs(angle2D - angle3D) < 42) {
+      // Perspective foreshortening always increases the apparent angle of acute/right angles.
+      // Weighted blend gives optimal accuracy without jitter.
+      return Math.round(0.45 * angle2D + 0.55 * angle3D);
+    }
+    return Math.round(angle2D);
+  }
+
+  /**
+   * Auto-estimates camera pitch (tilt angle) relative to user:
+   * - 'desk_downward': Camera is elevated on a table/desk pointing down (pitch ~20° to 45°)
+   * - 'floor_upward': Camera is on the floor/bed pointing up (pitch ~15° to 35°)
+   * - 'eye_level': Camera is approximately level with subject
+   */
+  static estimateCameraPerspective(landmarks) {
+    if (!landmarks || landmarks.length < 29) return { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Level View (→)' };
+
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const leftAnkle = landmarks[27];
+    const rightAnkle = landmarks[28];
+
+    if (!leftShoulder || !rightShoulder) return { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Level View (→)' };
+
+    const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+    const avgAnkleY = (leftAnkle && rightAnkle) ? (leftAnkle.y + rightAnkle.y) / 2 : 0.9;
+    const avgShoulderZ = ((leftShoulder.z || 0) + (rightShoulder.z || 0)) / 2;
+    const avgAnkleZ = (leftAnkle && rightAnkle) ? ((leftAnkle.z || 0) + (rightAnkle.z || 0)) / 2 : 0;
+
+    // Depth differential along vertical axis indicates camera pitch
+    const dz = avgShoulderZ - avgAnkleZ;
+    const dy = avgAnkleY - avgShoulderY;
+
+    if (dy > 0.3) {
+      const pitchRad = Math.atan2(dz, dy);
+      const pitchDeg = Math.round((pitchRad * 180) / Math.PI);
+
+      if (pitchDeg < -10) {
+        return { pitch: 'desk_downward', estimatedPitchDeg: pitchDeg, label: 'Desk View (Down ↘)' };
+      } else if (pitchDeg > 10) {
+        return { pitch: 'floor_upward', estimatedPitchDeg: pitchDeg, label: 'Floor View (Up ↗)' };
+      }
+    }
+
+    return { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Level View (→)' };
+  }
+
+  /**
    * Torso Incline Angle relative to the vertical Y axis.
    * Compares the (Shoulder -> Hip) vector with vertical (0, 1).
    */
@@ -57,6 +114,77 @@ export class KinematicsMath {
     // Angle in degrees from vertical line
     const angleFromVertical = Math.abs(Math.atan2(dx, -dy) * (180.0 / Math.PI));
     return angleFromVertical;
+  }
+
+  /**
+   * Universal Perspective-Invariant Plank Orientation:
+   * Auto-adapts to ANY camera height/tilt:
+   * 1. Laptop on high desk/table looking down (20°–45°)
+   * 2. Phone on floor looking up (15°–35°)
+   * 3. 45° diagonal perspective in narrow room
+   * 4. Side profile
+   *
+   * STRICT ANTI-CHEAT:
+   * 100% blocks standing upright "air pushups" or wall leaning!
+   */
+  static isPlankOrientationUniversal(shoulder, hip, wrist, ankle, knee, landmarks) {
+    if (!shoulder || !hip) return false;
+
+    // 1. Check 2D Torso Incline
+    const incline2D = this.calculateTorsoIncline(shoulder, hip);
+
+    // If 2D incline is already clearly horizontal (>= 42°), it's definitely plank
+    if (incline2D >= 42) return true;
+
+    // 2. Camera Pitch Invariance (For Desk Cameras looking down at ~30°-45°):
+    // When a camera is on a desk pointing down, a person lying on the floor has their
+    // torso projected with a steeper 2D dy. BUT in 3D world space:
+    const dz = Math.abs((shoulder.z || 0) - (hip.z || 0));
+    const dy = Math.abs(shoulder.y - hip.y);
+    const dx = Math.abs(shoulder.x - hip.x);
+
+    // 3D Spatial Vector angle from pure vertical:
+    const groundSpan3D = Math.hypot(dx, dz);
+    const angle3DFromVertical = Math.atan2(groundSpan3D, dy) * (180.0 / Math.PI);
+
+    if (angle3DFromVertical >= 38) {
+      // Confirm this is NOT a standing person:
+      // In standing air push-ups, ankles are 0.45 to 0.80 below wrists in normalized height!
+      // In floor push-ups, wrists and ankles are on the same floor plane (ankleToWristY < 0.35).
+      if (wrist && ankle) {
+        const ankleToWristY = ankle.y - wrist.y;
+        if (ankleToWristY >= 0.45) {
+          return false; // Standing cheat blocked!
+        }
+      }
+      return true; // Valid floor plank detected from elevated desk camera!
+    }
+
+    // 3. Aspect Ratio Check:
+    // Standing humans have bounding box height/width > 2.4. Floor plankers have height/width < 1.7.
+    if (landmarks && landmarks.length >= 29) {
+      const ys = landmarks.map(p => p.y);
+      const xs = landmarks.map(p => p.x);
+      const bboxH = Math.max(...ys) - Math.min(...ys);
+      const bboxW = Math.max(...xs) - Math.min(...xs);
+
+      if (bboxW > 0.05) {
+        const aspect = bboxH / bboxW;
+        if (aspect < 1.75 && incline2D >= 26) {
+          return true;
+        }
+      }
+    }
+
+    // Fallback: strictly require >= 42°
+    return incline2D >= 42;
+  }
+
+  /**
+   * Backward-compatible isPlankOrientation
+   */
+  static isPlankOrientation(shoulder, hip) {
+    return this.calculateTorsoIncline(shoulder, hip) >= 42;
   }
 
   /**

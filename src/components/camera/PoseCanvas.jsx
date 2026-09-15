@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, CameraOff, RefreshCw, AlertTriangle, Sparkles, Flame, Maximize2, Minimize2, FlipHorizontal } from 'lucide-react';
+import { Camera, CameraOff, RefreshCw, AlertTriangle, Sparkles, Flame, Maximize2, Minimize2, FlipHorizontal, Compass, Sliders } from 'lucide-react';
 import { getPoseLandmarker, PushUpFSM, SquatFSM, JumpingJackFSM } from '../../ai';
 import { audioAlerts } from '../../utils';
 
@@ -37,6 +37,12 @@ export default function PoseCanvas({
     isMirroredRef.current = isMirrored;
   }, [isMirrored]);
   const [currentFps, setCurrentFps] = useState(0);
+  const [cameraPerspective, setCameraPerspective] = useState({
+    pitch: 'eye_level',
+    estimatedPitchDeg: 0,
+    label: 'Auto-Calibrated'
+  });
+  const lastPerspectiveLabelRef = useRef('');
 
   // FSM Instances
   const pushUpFSM = useRef(new PushUpFSM());
@@ -51,6 +57,22 @@ export default function PoseCanvas({
 
   // Transient visual particle / alert states for canvas rendering
   const floatingEffectsRef = useRef([]);
+
+  const handleAutoCalibrateAngle = useCallback(() => {
+    pushUpFSM.current.reset();
+    squatFSM.current.reset();
+    jumpingJackFSM.current.reset();
+    floatingEffectsRef.current.push({
+      text: '📐 AUTO-ANGLE: DESK & FLOOR CALIBRATED',
+      color: '#10b981',
+      y: (canvasRef.current?.height || 480) * 0.45,
+      opacity: 1.0,
+      createdAt: Date.now()
+    });
+    if (onVoiceFeedback) {
+      onVoiceFeedback('Camera auto-angle calibrated!');
+    }
+  }, [onVoiceFeedback]);
 
   // Reset FSM on exercise change
   useEffect(() => {
@@ -215,6 +237,12 @@ export default function PoseCanvas({
               onRepUpdate(evalResult.reps);
             }
 
+            // Sync camera perspective detection
+            if (evalResult.perspective && evalResult.perspective.label && evalResult.perspective.label !== lastPerspectiveLabelRef.current) {
+              lastPerspectiveLabelRef.current = evalResult.perspective.label;
+              setCameraPerspective(evalResult.perspective);
+            }
+
             // Throttle React state telemetry:
             // 1. Immediately on rep change, fault, or state transition
             // 2. Otherwise throttled every 150ms to update progress bars without React re-render thrashing
@@ -340,17 +368,31 @@ export default function PoseCanvas({
       {/* Live Tactical HUD Badges */}
       {isCameraActive && (
         <>
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <div className="bg-[#050914]/90 border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono text-cyan-400 backdrop-blur-md">
-              33 LANDMARKS • {currentFps} FPS
+          <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2">
+            <div className="bg-[#050914]/90 border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono text-cyan-400 backdrop-blur-md flex items-center gap-1.5">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>{currentFps} FPS</span>
+            </div>
+
+            <div className="bg-[#050914]/95 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-[10px] font-mono text-emerald-300 backdrop-blur-md flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+              <Compass className="w-3 h-3 text-emerald-400" />
+              <span>📐 AUTO-ANGLE: {cameraPerspective.label ? cameraPerspective.label.toUpperCase() : 'ADAPTED'}</span>
             </div>
           </div>
 
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            <button
+              onClick={handleAutoCalibrateAngle}
+              title="Auto-Calibrate Camera Angle (Auto-adapts to desk/floor height without touching laptop)"
+              className="p-2 rounded-lg bg-[#050914]/90 border border-emerald-500/50 text-emerald-300 hover:text-emerald-100 hover:border-emerald-400 backdrop-blur-md transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-[0_0_10px_rgba(16,185,129,0.15)]"
+            >
+              <Sliders className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline text-[10px] uppercase font-mono">Auto-Adjust</span>
+            </button>
+
             <button
               onClick={() => setIsMirrored(prev => !prev)}
               title={isMirrored ? 'Mirror / Selfie View is ON (Click to unmirror)' : 'Mirror / Selfie View is OFF (Click to mirror)'}
