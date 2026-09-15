@@ -14,7 +14,7 @@ export default function App() {
       <main className="flex-1 flex flex-col">
         {activeTab === 'home' && <Hero onNavigate={setActiveTab} />}
         {activeTab === 'aicoach' && <AICoachPage />}
-        {activeTab === 'duels' && <DuelsPage />}
+        {activeTab === 'duels' && <DuelsPage onNavigate={setActiveTab} />}
         {activeTab === 'profile' && <ProfilePage />}
       </main>
     </div>
