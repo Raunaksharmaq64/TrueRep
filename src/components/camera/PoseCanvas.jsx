@@ -15,7 +15,7 @@ const POSE_CONNECTIONS = [
   [27, 29], [28, 30]  // feet
 ];
 
-export default function PoseCanvas({
+function PoseCanvas({
   exercise = 'pushup', // 'pushup' | 'squat' | 'jumpingjack'
   isExpanded = false,
   onToggleExpand,
@@ -48,6 +48,8 @@ export default function PoseCanvas({
   const lastDispatchedRepRef = useRef(-1);
   const lastDispatchedStateRef = useRef('');
   const lastTelemetryTimeRef = useRef(0);
+  const lastInferenceTimeRef = useRef(0);
+  const lastVideoTimeRef = useRef(-1);
 
   // Transient visual particle / alert states for canvas rendering
   const floatingEffectsRef = useRef([]);
@@ -70,6 +72,12 @@ export default function PoseCanvas({
         landmarkerRef.current = await getPoseLandmarker();
       }
       setIsLoadingModel(false);
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(
+          'HTTP Security Constraint: Mobile browsers require HTTPS or localhost to access camera. Use HTTPS or enable chrome://flags (Insecure origins treated as secure).'
+        );
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -94,7 +102,7 @@ export default function PoseCanvas({
       setCameraError(
         err.name === 'NotAllowedError'
           ? 'Camera permission denied. Please allow camera access in browser.'
-          : 'Could not access camera or load AI model. Please retry.'
+          : err.message || 'Could not access camera or load AI model. Please retry.'
       );
     }
   };
@@ -107,7 +115,7 @@ export default function PoseCanvas({
       videoRef.current.srcObject = null;
     }
     if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
+      clearTimeout(animationFrameId.current);
     }
     setIsCameraActive(false);
   }, []);
@@ -125,8 +133,6 @@ export default function PoseCanvas({
   // Main Detection Loop
   useEffect(() => {
     if (!isCameraActive) return;
-
-    let lastVideoTime = -1;
 
     const renderLoop = () => {
       const video = videoRef.current;
@@ -152,10 +158,13 @@ export default function PoseCanvas({
           fpsTimerRef.current = now;
         }
 
-        // Run Pose Inference
-        if (video.currentTime !== lastVideoTime) {
-          lastVideoTime = video.currentTime;
-          const poseResult = landmarker.detectForVideo(video, performance.now());
+        // Run Pose Inference (throttled to ~10 FPS / 100ms to keep JS event loop free for WebSockets)
+        // Lowering to 10fps gives ~40ms extra per cycle for Supabase WebSocket message delivery.
+        const perfNow = performance.now();
+        if (perfNow - lastInferenceTimeRef.current >= 100 && video.currentTime !== lastVideoTimeRef.current) {
+          lastInferenceTimeRef.current = perfNow;
+          lastVideoTimeRef.current = video.currentTime;
+          const poseResult = landmarker.detectForVideo(video, perfNow);
 
           ctx.clearRect(0, 0, width, height);
 
@@ -251,14 +260,16 @@ export default function PoseCanvas({
         }
       }
 
-      animationFrameId.current = requestAnimationFrame(renderLoop);
+      // Use setTimeout instead of requestAnimationFrame to yield the JS Event Loop for WebSocket network events
+      // 80ms = ~12fps render tick — plenty for smooth visuals while leaving room for Supabase sends
+      animationFrameId.current = setTimeout(renderLoop, 80);
     };
 
-    animationFrameId.current = requestAnimationFrame(renderLoop);
+    animationFrameId.current = setTimeout(renderLoop, 80);
 
     return () => {
       if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
+        clearTimeout(animationFrameId.current);
       }
     };
   }, [isCameraActive, exercise, onRepUpdate, onTelemetryUpdate, onVoiceFeedback]);
@@ -297,7 +308,7 @@ export default function PoseCanvas({
       {/* Camera Off Placeholder & Controls */}
       {!isCameraActive && (
         <div className="relative z-20 flex flex-col items-center justify-center p-6 text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 rounded-2xl bg-[#081326] border border-cyan-500/40 flex items-center justify-center text-cyan-400 shadow-[0_0_20px_rgba(0,210,255,0.2)]">
+          <div className="w-16 h-16 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[#EAB308]">
             <Camera className="w-8 h-8" />
           </div>
 
@@ -320,16 +331,16 @@ export default function PoseCanvas({
           <button
             onClick={startCamera}
             disabled={isLoadingModel}
-            className="px-6 py-3 rounded-full bg-[#0070F3] hover:bg-blue-600 active:scale-95 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg flex items-center gap-2"
+            className="px-6 py-3 rounded-full bg-white text-[#18181B] hover:bg-[#EAB308] active:scale-95 font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-2"
           >
             {isLoadingModel ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin text-cyan-300" />
+                <RefreshCw className="w-4 h-4 animate-spin text-[#18181B]" />
                 <span>Loading Local Model...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-cyan-300" />
+                <Sparkles className="w-4 h-4 text-[#18181B]" />
                 <span>Start AI Camera</span>
               </>
             )}
@@ -342,10 +353,10 @@ export default function PoseCanvas({
         <>
           <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
             <span className="flex h-2.5 w-2.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#EAB308]"></span>
             </span>
-            <div className="bg-[#050914]/90 border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono text-cyan-400 backdrop-blur-md">
+            <div className="bg-black/80 border border-white/20 px-2.5 py-1 rounded-full text-[10px] font-mono text-white backdrop-blur-md">
               33 LANDMARKS • {currentFps} FPS
             </div>
           </div>
@@ -353,11 +364,11 @@ export default function PoseCanvas({
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
             <button
               onClick={() => setIsMirrored(prev => !prev)}
-              title={isMirrored ? 'Mirror / Selfie View is ON (Click to unmirror)' : 'Mirror / Selfie View is OFF (Click to mirror)'}
-              className={`p-2 rounded-lg border backdrop-blur-md transition-colors flex items-center gap-1.5 text-xs font-semibold ${
+              title={isMirrored ? 'Mirror / Selfie View is ON' : 'Mirror / Selfie View is OFF'}
+              className={`p-2 rounded-full border backdrop-blur-md transition-colors flex items-center gap-1.5 text-xs font-semibold ${
                 isMirrored 
-                  ? 'bg-cyan-950/90 border-cyan-500/60 text-cyan-300' 
-                  : 'bg-[#050914]/90 border-slate-700/80 text-slate-400 hover:text-white'
+                  ? 'bg-[#EAB308] border-[#EAB308] text-[#18181B]' 
+                  : 'bg-black/80 border-white/20 text-slate-300 hover:text-white'
               }`}
             >
               <FlipHorizontal className="w-4 h-4" />
@@ -367,7 +378,7 @@ export default function PoseCanvas({
               <button
                 onClick={onToggleExpand}
                 title={isExpanded ? 'Normal view' : 'Expand full-height camera'}
-                className="p-2 rounded-lg bg-[#050914]/90 border border-slate-700/80 text-cyan-400 hover:text-white backdrop-blur-md transition-colors"
+                className="p-2 rounded-full bg-black/80 border border-white/20 text-white hover:text-[#EAB308] backdrop-blur-md transition-colors"
               >
                 {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
@@ -375,14 +386,14 @@ export default function PoseCanvas({
             <button
               onClick={toggleFacingMode}
               title="Switch camera"
-              className="p-2 rounded-lg bg-[#050914]/90 border border-slate-700/80 text-slate-300 hover:text-white backdrop-blur-md transition-colors"
+              className="p-2 rounded-full bg-black/80 border border-white/20 text-slate-300 hover:text-white backdrop-blur-md transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
             <button
               onClick={stopCamera}
               title="Stop camera"
-              className="p-2 rounded-lg bg-rose-950/80 border border-rose-500/50 text-rose-300 hover:text-rose-100 backdrop-blur-md transition-colors"
+              className="p-2 rounded-full bg-rose-600 border border-rose-500 text-white hover:bg-rose-700 backdrop-blur-md transition-colors"
             >
               <CameraOff className="w-4 h-4" />
             </button>
@@ -402,12 +413,11 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
   const isCombo = evalResult.isComboActive;
 
   // Coordinate mapping helper:
-  // If video is mirrored via scale-x-[-1], we map X mathematically so the canvas stays unmirrored and all text stays 100% readable!
   const getX = (pt) => (isMirrored ? (1.0 - pt.x) * width : pt.x * width);
   const getY = (pt) => pt.y * height;
 
   // Dynamic theme color
-  let boneColor = '#00d2ff'; // Cyan default
+  let boneColor = '#EAB308'; // Warm yellow default
   let jointFill = '#ffffff';
 
   if (!isFormValid) {
@@ -580,11 +590,11 @@ function drawGhostSilhouetteGuide(ctx, width, height, isAligned) {
   ctx.setLineDash([]);
   const titleSize = Math.max(14, Math.round(width * 0.018));
   ctx.fillStyle = '#38bdf8';
-  ctx.font = `bold ${titleSize}px "Space Grotesk", sans-serif`;
+  ctx.font = `bold ${titleSize}px "Plus Jakarta Sans", sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText('ALIGN BODY INSIDE AR GUIDE', width / 2, boxY + titleSize + 12);
   const subSize = Math.max(11, Math.round(width * 0.013));
-  ctx.font = `${subSize}px "Space Grotesk", sans-serif`;
+  ctx.font = `${subSize}px "Plus Jakarta Sans", sans-serif`;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
   ctx.fillText('Step back until body is fully framed', width / 2, boxY + titleSize + subSize + 22);
 
@@ -612,7 +622,7 @@ function renderFloatingEffects(ctx, width, effects) {
     ctx.save();
     ctx.globalAlpha = alpha;
     const fontSize = Math.max(22, Math.round(width * 0.028));
-    ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
+    ctx.font = `bold ${fontSize}px "Plus Jakarta Sans", sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillStyle = fx.color;
     ctx.shadowColor = fx.color;
@@ -633,7 +643,7 @@ function drawComboAuraBanner(ctx, width, streak) {
 
   const text = `🔥 FLAME COMBO: ${streak} CLEAN REPS (1.5x XP MULTIPLIER)`;
   const fontSize = Math.max(12, Math.round(width * 0.015));
-  ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
+  ctx.font = `bold ${fontSize}px "Plus Jakarta Sans", sans-serif`;
   const metrics = ctx.measureText(text);
   const boxW = metrics.width + 24;
   const boxH = fontSize + 16;
@@ -645,7 +655,7 @@ function drawComboAuraBanner(ctx, width, streak) {
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = '#03060d';
+  ctx.fillStyle = '#18181B';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, width / 2, y + boxH / 2);
@@ -655,13 +665,13 @@ function drawComboAuraBanner(ctx, width, streak) {
 function drawFloatingBadge(ctx, x, y, text, color) {
   ctx.save();
   const fontSize = Math.max(13, Math.round(ctx.canvas.width * 0.015));
-  ctx.font = `bold ${fontSize}px "Space Grotesk", sans-serif`;
+  ctx.font = `bold ${fontSize}px "Plus Jakarta Sans", sans-serif`;
   const metrics = ctx.measureText(text);
   const paddingX = 10;
   const boxW = metrics.width + paddingX * 2;
   const boxH = fontSize + 10;
 
-  ctx.fillStyle = 'rgba(4, 7, 17, 0.92)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.5;
 
@@ -676,3 +686,6 @@ function drawFloatingBadge(ctx, x, y, text, color) {
   ctx.fillText(text, x, y);
   ctx.restore();
 }
+
+export default React.memo(PoseCanvas);
+
