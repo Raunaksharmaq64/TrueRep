@@ -269,4 +269,98 @@ export class KinematicsMath {
 
     return rightScore > leftScore ? 'right' : 'left';
   }
+
+  /**
+   * Measures individual anthropometric Femur-to-Torso length ratio.
+   * Lifters with long femurs (> 0.85) naturally lean further forward (48° - 58°)
+   * during squats to keep center-of-mass balanced over mid-foot.
+   */
+  static calculateFemurToTorsoRatio(shoulder, hip, knee) {
+    if (!shoulder || !hip || !knee) return 0.80; // Standard average default
+    const femur = Math.hypot(hip.x - knee.x, hip.y - knee.y);
+    const torso = Math.hypot(shoulder.x - hip.x, shoulder.y - hip.y);
+    if (torso <= 0.001) return 0.80;
+    return Math.round((femur / torso) * 100) / 100;
+  }
+
+  /**
+   * True Biomechanical Relative Depth:
+   * Evaluates vertical relationship between Hip Crease and Top of Knee (Patella),
+   * normalized to femur segment length.
+   * In screen coordinates (y increases downward):
+   *   - Standing: hip.y << knee.y  --> deltaY > +0.70
+   *   - Parallel: hip.y == knee.y  --> deltaY == 0.00
+   *   - Below Parallel: hip.y > knee.y --> deltaY < 0.00 (e.g. -0.05 to -0.15)
+   */
+  static calculateRelativeDepth(hip, knee) {
+    if (!hip || !knee) return { deltaY: 1.0, isParallelOrDeeper: false, isOlympicDeep: false };
+    const femur = Math.hypot(hip.x - knee.x, hip.y - knee.y);
+    if (femur <= 0.001) return { deltaY: 1.0, isParallelOrDeeper: false, isOlympicDeep: false };
+
+    // In screen coordinates: knee.y - hip.y <= 0 when hip drops to or below knee
+    const deltaY = (knee.y - hip.y) / femur;
+
+    return {
+      deltaY: Math.round(deltaY * 1000) / 1000,
+      isOlympicDeep: deltaY <= -0.05,
+      isParallelOrDeeper: deltaY <= 0.02,
+      isSoftParallel: deltaY <= 0.10
+    };
+  }
+
+  /**
+   * Stance-Compensated Knee Valgus Detector:
+   * Auto-adjusts valgus ratio threshold for wide/sumo squats so lifters with wide stances
+   * are not falsely penalized for knees caving in when their knees track properly over toes.
+   */
+  static detectKneeValgusAdaptive(leftKnee, rightKnee, leftAnkle, rightAnkle, baselineStanceWidth = null) {
+    if (!leftKnee || !rightKnee || !leftAnkle || !rightAnkle) {
+      return { hasValgus: false, ratio: 1.0, isWideStance: false };
+    }
+
+    const kneeDistance = Math.hypot(leftKnee.x - rightKnee.x, leftKnee.y - rightKnee.y);
+    const ankleDistance = Math.hypot(leftAnkle.x - rightAnkle.x, leftAnkle.y - rightAnkle.y);
+
+    if (ankleDistance === 0) return { hasValgus: false, ratio: 1.0, isWideStance: false };
+    const ratio = kneeDistance / ankleDistance;
+
+    // Detect if athlete is in wide/sumo stance
+    const isWideStance = baselineStanceWidth
+      ? ankleDistance > baselineStanceWidth * 1.25
+      : ankleDistance > 0.38;
+
+    // For wide/sumo squats, lower the ratio threshold to 0.64 (knees outward over wide toes)
+    // For standard stance, threshold is 0.80
+    const threshold = isWideStance ? 0.64 : 0.80;
+
+    return {
+      hasValgus: ratio < threshold,
+      ratio: Math.round(ratio * 100) / 100,
+      isWideStance
+    };
+  }
+
+  /**
+   * Body Yaw Estimator:
+   * Evaluates disparity between left/right shoulder and hip widths to classify camera viewpoint:
+   * - 'frontal': Facing camera (0° ± 25°)
+   * - 'diagonal': 45° angle view
+   * - 'side': Profile view (70° - 90°)
+   */
+  static estimateBodyYaw(leftShoulder, rightShoulder, leftHip, rightHip) {
+    if (!leftShoulder || !rightShoulder) {
+      return { viewAngle: 'frontal', yawRatio: 1.0 };
+    }
+
+    const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+    const hipWidth = (leftHip && rightHip) ? Math.abs(leftHip.x - rightHip.x) : shoulderWidth * 0.75;
+    const avgWidth = (shoulderWidth + hipWidth) / 2;
+
+    if (avgWidth < 0.08) {
+      return { viewAngle: 'side', yawRatio: avgWidth };
+    } else if (avgWidth < 0.18) {
+      return { viewAngle: 'diagonal', yawRatio: avgWidth };
+    }
+    return { viewAngle: 'frontal', yawRatio: avgWidth };
+  }
 }

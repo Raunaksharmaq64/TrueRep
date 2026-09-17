@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { 
   Flame, 
   CheckCircle2, 
@@ -19,12 +19,18 @@ import {
   Timer,
   Clock,
   Award,
-  BarChart3
+  BarChart3,
+  Bell,
+  X,
+  Dumbbell,
+  Check,
+  Layers
 } from 'lucide-react';
 import PoseCanvas from './camera';
 import { RestPauseOverlay, WorkoutAnalyticsModal } from './workout';
 import { useWebSpeech } from '../hooks';
 import { audioAlerts } from '../utils';
+import { EXERCISE_CONFIGS } from '../ai';
 
 export default function AICoachPage() {
   const [exercise, setExercise] = useState('pushup'); // 'pushup' | 'squat' | 'jumpingjack'
@@ -33,6 +39,24 @@ export default function AICoachPage() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [showDeepTelemetry, setShowDeepTelemetry] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [comingSoonExercise, setComingSoonExercise] = useState(null);
+  const [notifiedList, setNotifiedList] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('truerep_notified_exercises') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const handleToggleNotify = (id) => {
+    setNotifiedList(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem('truerep_notified_exercises', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Phase 2: Solo Challenge Engine & Timers
   const [workoutMode, setWorkoutMode] = useState('target'); // 'target' | 'sprint' | 'strict'
@@ -133,12 +157,26 @@ export default function AICoachPage() {
 
   const handleTelemetryUpdate = useCallback((data) => {
     setTelemetry(data);
-  }, []);
+    if (data.isExercising && !isSessionActive) {
+      setIsSessionActive(true);
+    }
+  }, [isSessionActive]);
 
   const handleRepUpdate = useCallback((count) => {
     setRepCount(count);
     setIsSessionActive(true); // Auto-starts clock on first movement!
   }, []);
+
+  const averageSessionScore = useMemo(() => {
+    if (!telemetry.repHistory || telemetry.repHistory.length === 0) {
+      return telemetry.formScore || 95;
+    }
+    const scores = telemetry.repHistory
+      .filter((r) => r.valid && r.score)
+      .map((r) => r.score);
+    if (scores.length === 0) return telemetry.formScore || 95;
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  }, [telemetry.repHistory, telemetry.formScore]);
 
   const toggleVoice = () => {
     setVoiceEnabled((prev) => !prev);
@@ -226,11 +264,12 @@ export default function AICoachPage() {
             </h1>
           </div>
 
-          {/* Exercise Selector Pills */}
-          <div className="flex items-center gap-2 bg-[#060a15] p-1.5 rounded-2xl border border-slate-800">
+          {/* Exercise Selector Pills (Active & Coming Soon) */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-[#060a15] p-1.5 rounded-2xl border border-slate-800">
+            {/* Active Models */}
             <button
               onClick={() => handleSelectExercise('pushup')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 exercise === 'pushup'
                   ? 'bg-[#0070F3] text-white shadow-lg'
                   : 'text-slate-400 hover:text-white'
@@ -240,7 +279,7 @@ export default function AICoachPage() {
             </button>
             <button
               onClick={() => handleSelectExercise('squat')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 exercise === 'squat'
                   ? 'bg-[#0070F3] text-white shadow-lg'
                   : 'text-slate-400 hover:text-white'
@@ -250,13 +289,61 @@ export default function AICoachPage() {
             </button>
             <button
               onClick={() => handleSelectExercise('jumpingjack')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 exercise === 'jumpingjack'
                   ? 'bg-[#0070F3] text-white shadow-lg'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               Jumping Jacks
+            </button>
+
+            {/* Separator */}
+            <div className="h-4 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
+
+            {/* Coming Soon Models */}
+            <button
+              onClick={() => setComingSoonExercise(EXERCISE_CONFIGS.bicep_curl)}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 border border-dashed border-slate-800 hover:border-cyan-500/40 transition-all flex items-center gap-1.5 group"
+            >
+              <Dumbbell className="w-3 h-3 text-cyan-400" />
+              <span>Biceps</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 font-mono font-bold uppercase">
+                Soon
+              </span>
+            </button>
+
+            <button
+              onClick={() => setComingSoonExercise(EXERCISE_CONFIGS.shoulder_press)}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 border border-dashed border-slate-800 hover:border-cyan-500/40 transition-all flex items-center gap-1.5 group"
+            >
+              <Zap className="w-3 h-3 text-cyan-400" />
+              <span>Shoulder Press</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 font-mono font-bold uppercase">
+                Soon
+              </span>
+            </button>
+
+            <button
+              onClick={() => setComingSoonExercise(EXERCISE_CONFIGS.lunge)}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 border border-dashed border-slate-800 hover:border-cyan-500/40 transition-all flex items-center gap-1.5 group"
+            >
+              <Activity className="w-3 h-3 text-amber-400" />
+              <span>Lunges</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-950/80 border border-amber-500/40 text-amber-400 font-mono font-bold uppercase">
+                Beta
+              </span>
+            </button>
+
+            <button
+              onClick={() => setComingSoonExercise(EXERCISE_CONFIGS.deadlift)}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-cyan-300 hover:bg-slate-900/60 border border-dashed border-slate-800 hover:border-cyan-500/40 transition-all flex items-center gap-1.5 group"
+            >
+              <Target className="w-3 h-3 text-rose-400" />
+              <span>Deadlift</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-rose-950/80 border border-rose-500/40 text-rose-400 font-mono font-bold uppercase">
+                Soon
+              </span>
             </button>
           </div>
 
@@ -418,11 +505,19 @@ export default function AICoachPage() {
             )}
           </div>
 
-          {/* Center: Live Form Quality Pill (Clean, Fault, Depth, Anti-Cheat) - OUTSIDE CAMERA! */}
+          {/* Center: Live Form Quality Pill (Clean, Fault, Depth, Readiness, Anti-Cheat) */}
           <div className="flex-1 min-w-[240px] max-w-lg flex justify-center">
             <div className={`px-4 py-2 rounded-xl border flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider shadow-lg transition-all ${
-              telemetry.state === 'IN_DEPTH' || telemetry.state === 'AT_PEAK'
+              telemetry.readinessState === 'COUNTDOWN'
+                ? 'bg-cyan-950/95 border-cyan-400 text-cyan-200 shadow-[0_0_22px_rgba(0,210,255,0.4)] animate-pulse'
+                : telemetry.readinessState === 'READY'
+                ? 'bg-emerald-950/90 border-emerald-400 text-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.35)]'
+                : telemetry.readinessState === 'POSITIONING'
+                ? 'bg-amber-950/90 border-amber-500/80 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                : telemetry.state === 'IN_DEPTH' || telemetry.state === 'AT_PEAK'
                 ? 'bg-emerald-950/90 border-emerald-400/80 text-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.35)] animate-pulse'
+                : !telemetry.isMatchingExercise && telemetry.exerciseCue
+                ? 'bg-amber-950/90 border-amber-500/80 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
                 : telemetry.isFormValid
                 ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400'
                 : 'bg-rose-950/95 border-rose-500 text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.4)] animate-bounce'
@@ -433,10 +528,18 @@ export default function AICoachPage() {
                 <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0" />
               )}
               <span className="truncate">
-                {telemetry.state === 'IN_DEPTH' || telemetry.state === 'AT_PEAK'
+                {telemetry.readinessState === 'COUNTDOWN'
+                  ? `⏱️ STARTING IN ${telemetry.countdownValue || 'GO!'}`
+                  : telemetry.readinessState === 'READY'
+                  ? '🟢 YOU ARE READY • HOLD POSITION'
+                  : telemetry.readinessState === 'POSITIONING'
+                  ? `📐 ${telemetry.postureGuidance || 'ADJUST POSITION'}`
+                  : telemetry.state === 'IN_DEPTH' || telemetry.state === 'AT_PEAK'
                   ? '🎯 90° OLYMPIC DEPTH VALID'
+                  : !telemetry.isMatchingExercise && telemetry.exerciseCue
+                  ? `⚡ ${telemetry.exerciseCue}`
                   : telemetry.isFormValid
-                  ? '✓ 99.99% FORM CLEAN'
+                  ? `✓ ${averageSessionScore}% FORM SCORE (${averageSessionScore >= 90 ? 'ELITE' : averageSessionScore >= 80 ? 'SOLID' : 'GOOD'})`
                   : (`🚨 ${telemetry.formErrorReason || 'FORM FAULT'}`)}
               </span>
             </div>
@@ -453,7 +556,7 @@ export default function AICoachPage() {
             )}
             {exercise === 'squat' && (
               <>
-                <span className="text-slate-400">Knee: <strong className={telemetry.kneeAngle <= 90 ? 'text-emerald-400' : 'text-cyan-400'}>{telemetry.kneeAngle || '--'}°</strong> <span className="text-[10px] text-slate-500">(≤90°)</span></span>
+                <span className="text-slate-400">Knee: <strong className={telemetry.kneeAngle <= 95 ? 'text-emerald-400' : 'text-cyan-400'}>{telemetry.kneeAngle || '--'}°</strong> <span className="text-[10px] text-slate-500">(≤95°)</span></span>
                 <span className="text-slate-600">|</span>
                 <span className="text-slate-400">Hip: <strong className={telemetry.hipAngle ? 'text-cyan-400' : 'text-slate-400'}>{telemetry.hipAngle || '--'}°</strong> <span className="text-[10px] text-slate-500">(Hinge)</span></span>
               </>
@@ -473,7 +576,7 @@ export default function AICoachPage() {
           <div className="flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 text-cyan-400" />
             <span className="text-cyan-300 font-bold tracking-wider">ANTI-CHEAT SENTINEL:</span>
-            <span className="truncate">{exercise === 'pushup' ? 'Universal Plank Gate • Strict 90° Depth • Anti-Worm Latch' : exercise === 'squat' ? 'Vertical Stance Gate • Parallel 90° Depth • Pelvic Excursion Guard' : 'Bilateral Overhead Reach • Dynamic Stance Jump Gate'}</span>
+            <span className="truncate">{exercise === 'pushup' ? 'Universal Plank Gate • Adaptive 90° Depth • Rest-Pause Tolerance' : exercise === 'squat' ? 'Adaptive Lockout • Relative Hip-Crease Depth • Stance-Compensated Valgus' : 'Bilateral Overhead Reach • Dynamic Stance Jump Gate'}</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-cyan-400 font-semibold">
@@ -482,7 +585,7 @@ export default function AICoachPage() {
             </div>
             <div className="flex items-center gap-1 text-emerald-400 font-bold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>99.99% VERIFIED</span>
+              <span>SESSION FORM: {averageSessionScore}%</span>
             </div>
           </div>
         </div>
@@ -704,6 +807,102 @@ export default function AICoachPage() {
           maxStreak={maxComboStreak}
           athleteName="ATHLETE_ONE"
         />
+
+        {/* Coming Soon Exercise Model Preview Modal */}
+        {comingSoonExercise && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+            <div className="relative w-full max-w-lg bg-[#060a16] border border-cyan-500/40 rounded-3xl p-6 sm:p-8 shadow-[0_0_50px_rgba(0,210,255,0.15)] space-y-6">
+              {/* Top Row: Title & Close */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-950/90 border border-cyan-500/50 text-cyan-400">
+                      {comingSoonExercise.tag || 'COMING SOON'}
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">
+                      {comingSoonExercise.category}
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white tracking-wide font-hero-slant uppercase mt-1">
+                    {comingSoonExercise.name}
+                  </h3>
+                </div>
+
+                <button
+                  onClick={() => setComingSoonExercise(null)}
+                  className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Biomechanical Rules Being Trained */}
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  <span>AI Biomechanical Validation Rules</span>
+                </div>
+                <div className="space-y-2 bg-[#02050c] p-4 rounded-2xl border border-slate-800/80 text-xs">
+                  {comingSoonExercise.rules && comingSoonExercise.rules.map((rule, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-slate-300">
+                      <span className="text-cyan-400 font-bold font-mono">0{idx + 1}.</span>
+                      <span>{rule}</span>
+                    </div>
+                  ))}
+                  {(!comingSoonExercise.rules || comingSoonExercise.rules.length === 0) && (
+                    <p className="text-slate-400">Model undergoing tournament validation and sports-science calibration.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Edge Specs */}
+              <div className="grid grid-cols-2 gap-3 text-[11px] font-mono">
+                <div className="bg-[#030712] p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block">Preferred Vision View:</span>
+                  <span className="text-cyan-300 font-bold uppercase">{comingSoonExercise.preferredView || 'Diagonal'} Profile</span>
+                </div>
+                <div className="bg-[#030712] p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-500 block">Target Cadence:</span>
+                  <span className="text-emerald-400 font-bold">≥{comingSoonExercise.minRepDurationSeconds || 0.65}s Cadence</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                <button
+                  onClick={() => handleToggleNotify(comingSoonExercise.id)}
+                  className={`w-full sm:flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg ${
+                    notifiedList[comingSoonExercise.id]
+                      ? 'bg-emerald-950/90 border border-emerald-500 text-emerald-300'
+                      : 'bg-gradient-to-r from-cyan-500 to-[#0070F3] hover:from-cyan-400 hover:to-blue-600 text-white'
+                  }`}
+                >
+                  {notifiedList[comingSoonExercise.id] ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>On Priority Beta List!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-4 h-4" />
+                      <span>Notify Me When Live</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setComingSoonExercise(null);
+                    handleSelectExercise('pushup');
+                  }}
+                  className="w-full sm:w-auto py-3 px-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white font-semibold text-xs transition-colors"
+                >
+                  Train Active Reps
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

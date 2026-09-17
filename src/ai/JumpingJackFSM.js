@@ -11,7 +11,7 @@
  *   - Closed Position (Start/Finish): Hands by sides (< 40°) & Stance Ratio < 1.1
  */
 
-import { KinematicsMath } from './KinematicsMath';
+import { KinematicsMath } from './KinematicsMath.js';
 
 export class JumpingJackFSM {
   constructor() {
@@ -194,6 +194,7 @@ export class JumpingJackFSM {
       lastRepDuration: this.lastRepDuration,
       consecutiveCleanReps: this.consecutiveCleanReps,
       isComboActive,
+      formScore: 95,
       perspective,
       repHistory: this.repHistory
     };
@@ -206,6 +207,7 @@ export class JumpingJackFSM {
       feedback: customFeedback || this.feedback,
       armAngle: Math.round(armAngle),
       stanceRatio: Math.round(stanceRatio * 10) / 10,
+      formScore: 95,
       isFormValid,
       formErrorReason: this.formErrorReason,
       dominantProfile: 'front',

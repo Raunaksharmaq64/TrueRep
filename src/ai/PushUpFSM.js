@@ -10,10 +10,12 @@
  *   - Real-time corrective posture coaching messages.
  */
 
-import { KinematicsMath } from './KinematicsMath';
+import { KinematicsMath } from './KinematicsMath.js';
+import { GroundPlaneTracker } from './depth/GroundPlaneTracker.js';
 
 export class PushUpFSM {
   constructor() {
+    this.groundTracker = new GroundPlaneTracker();
     this.reset();
   }
 
@@ -23,18 +25,22 @@ export class PushUpFSM {
     this.consecutiveCleanReps = 0;
     this.repStartTime = 0;
     this.descentStartTime = 0;
+    this.lockoutEnterTime = 0;
     this.initialShoulderY = 0;
     this.maxDownwardDisplacement = 0;
     this.lastRepDuration = 0;
     this.isFormValidInCurrentRep = true;
     this.formErrorReason = null;
+    this.formScore = 95;
     this.smoothedElbowAngle = null;
     this.smoothedSpineAngle = null;
     this.smoothedRightElbowAngle = null;
     this.feedback = 'Get into horizontal plank: Arms straight';
     this.postureGuidance = 'Place device on floor and get into horizontal plank';
-    this.minRepDurationSeconds = 0.70; // Human biomechanics minimum for real pushup
+    this.minRepDurationSeconds = 0.55; // Accommodates frame drops & athletic tempo
     this.repHistory = [];
+    this.groundTracker?.reset();
+    this.lastGroundResult = null;
   }
 
   processFrame(landmarks) {
@@ -184,11 +190,21 @@ export class PushUpFSM {
     let repIncremented = false;
     let repFaultOccurred = false;
 
-    // =========================================================================
-    // ANTI-CHEAT GATE 3: STRICT 90° DEPTH & FULL LOCKOUT (TOURNAMENT STANDARDS)
-    // =========================================================================
-    const isAtLockout = elbowAngle >= 152; // Full arm lockout
-    const isAtDepth = elbowAngle <= 90;   // Genuine 90° chest-to-floor depth
+    const groundResult = this.groundTracker.evaluate(
+      landmarks,
+      isRight,
+      shoulder,
+      elbow,
+      wrist,
+      ankle
+    );
+    this.lastGroundResult = groundResult;
+
+    // Dual-Condition Depth:
+    // 1. Standard Elbow Angle <= 95°
+    // 2. OR Ground-Plane Chest at floor proximity (<= 0.36) with elbow <= 104°
+    const isAtLockout = elbowAngle >= 148;
+    const isAtDepth = elbowAngle <= 95 || (groundResult && groundResult.isChestAtFloor && elbowAngle <= 104);
 
     switch (this.state) {
       case 'IDLE':
@@ -198,11 +214,23 @@ export class PushUpFSM {
         this.maxDownwardDisplacement = 0;
 
         if (isAtLockout) {
+          if (this.state !== 'START_LOCKOUT') {
+            this.lockoutEnterTime = now;
+          }
           this.state = 'START_LOCKOUT';
-          this.feedback = 'Locked in horizontal plank. Descend now!';
-          this.postureGuidance = 'Solid plank! Lower chest until elbows reach 90°.';
+
+          // Rest-pause tolerance in plank: if holding plank > 2s, offer supportive breathing cue
+          const holdTime = now - this.lockoutEnterTime;
+          if (holdTime > 2.0) {
+            this.feedback = 'Resting in plank. Take a breath and descend when ready!';
+            this.postureGuidance = 'Solid plank hold! Descend whenever you are ready.';
+          } else {
+            this.feedback = 'Locked in horizontal plank. Descend now!';
+            this.postureGuidance = 'Solid plank! Lower chest until elbows reach 90°.';
+          }
         } else {
-          this.postureGuidance = `Lock arms straight (Currently ${elbowAngle}°/155°)`;
+          this.lockoutEnterTime = 0;
+          this.postureGuidance = `Lock arms straight (Currently ${elbowAngle}°/148°)`;
         }
 
         // Trigger descent
@@ -227,10 +255,7 @@ export class PushUpFSM {
             : `90° Hit (⚠️ ${this.formErrorReason || 'Form Break'})`;
           this.postureGuidance = 'Depth achieved! Push back up to full lockout!';
         } else if (elbowAngle > 140 && now - this.descentStartTime > 0.35) {
-          // ===================================================================
-          // ANTI-CHEAT: SHALLOW HALF-REP DISQUALIFICATION
-          // User turned around before hitting 90° depth!
-          // ===================================================================
+          // Shallow half-rep turnaround
           this.state = 'START_LOCKOUT';
           this.isFormValidInCurrentRep = false;
           this.formErrorReason = 'Shallow Depth (Did not reach 90°)';
@@ -238,11 +263,13 @@ export class PushUpFSM {
           this.postureGuidance = 'Go all the way down! Elbows must reach 90°.';
           repFaultOccurred = true;
           this.consecutiveCleanReps = 0;
+          this.formScore = Math.max(50, this.formScore - 15);
           this.repHistory.push({
             repNumber: this.repCount + 1,
             duration: now - this.repStartTime,
             valid: false,
-            reason: 'Shallow Depth (<90°)',
+            score: 55,
+            reason: 'Shallow Depth (<95°)',
             elbowAngle,
             spineAngle
           });
@@ -259,32 +286,42 @@ export class PushUpFSM {
         break;
 
       case 'ASCENDING':
-        this.postureGuidance = `Extending arms: ${elbowAngle}° (Lockout: ≥155°)`;
+        this.postureGuidance = `Extending arms: ${elbowAngle}° (Lockout: ≥148°)`;
 
         if (isAtLockout) {
           const duration = now - this.repStartTime;
           this.lastRepDuration = duration;
 
-          // ===================================================================
-          // ANTI-CHEAT GATE 4 & 5: TUT SPEED LIMIT & VERTICAL DROP CHECK
-          // Auto-scales vertical displacement to body distance & camera height
-          // ===================================================================
           const passedTUT = duration >= this.minRepDurationSeconds;
           const torsoLength = Math.hypot(shoulder.x - hip.x, shoulder.y - hip.y);
-          const minRequiredDisplacement = Math.max(0.018, torsoLength * 0.10);
+          const minRequiredDisplacement = Math.max(0.016, torsoLength * 0.08);
           const passedDisplacement = this.maxDownwardDisplacement >= minRequiredDisplacement;
-          const isCleanSpine = spineAngle >= 150 && spineAngle <= 192;
+          const isCleanSpine = spineAngle >= 145 && spineAngle <= 195;
 
           if (this.isFormValidInCurrentRep && passedTUT && passedDisplacement && isCleanSpine) {
             this.repCount++;
             this.consecutiveCleanReps++;
             repIncremented = true;
-            this.feedback = `Rep #${this.repCount} Verified (99.99% Clean)!`;
+
+            // Graded Sports-Science Scoring
+            let repScore = 95;
+            let coachFeedback = `Rep #${this.repCount} Verified!`;
+            if (elbowAngle <= 85) {
+              repScore = 100;
+              coachFeedback = `Rep #${this.repCount}: 100% Olympic Chest Depth!`;
+            } else if (elbowAngle > 90) {
+              repScore = 85;
+              coachFeedback = `Rep #${this.repCount}: Solid! Go 1" lower for 100%`;
+            }
+            this.formScore = repScore;
+
+            this.feedback = coachFeedback;
             this.postureGuidance = `Clean Rep #${this.repCount}! Descend for next rep.`;
             this.repHistory.push({
               repNumber: this.repCount,
               duration,
               valid: true,
+              score: repScore,
               elbowAngle,
               spineAngle
             });
@@ -292,16 +329,18 @@ export class PushUpFSM {
             repFaultOccurred = true;
             this.consecutiveCleanReps = 0;
             let reason = this.formErrorReason;
-            if (!passedTUT) reason = 'Twitch Cheat (Too fast, cadence <0.7s)';
+            if (!passedTUT) reason = 'Twitch Cheat (Too fast, cadence <0.55s)';
             else if (!passedDisplacement) reason = 'No Vertical Drop (Arm rotation spoof)';
             else if (!isCleanSpine) reason = 'Core Sagging (Worm push-up)';
 
+            this.formScore = Math.max(50, this.formScore - 10);
             this.feedback = `No Rep: ${reason || 'Form violation'}`;
             this.postureGuidance = `No Rep: ${reason || 'Form violation'}`;
             this.repHistory.push({
               repNumber: this.repCount + 1,
               duration,
               valid: false,
+              score: 60,
               reason: reason || 'Form fault',
               elbowAngle,
               spineAngle
@@ -309,6 +348,7 @@ export class PushUpFSM {
           }
 
           this.state = 'START_LOCKOUT';
+          this.lockoutEnterTime = now;
           this.isFormValidInCurrentRep = true;
           this.formErrorReason = null;
           this.maxDownwardDisplacement = 0;
@@ -334,8 +374,10 @@ export class PushUpFSM {
       lastRepDuration: this.lastRepDuration,
       consecutiveCleanReps: this.consecutiveCleanReps,
       isComboActive,
+      formScore: this.formScore,
       perspective,
-      repHistory: this.repHistory
+      repHistory: this.repHistory,
+      groundResult
     };
   }
 
@@ -347,6 +389,7 @@ export class PushUpFSM {
       postureGuidance: customFeedback || this.postureGuidance,
       elbowAngle: Math.round(elbowAngle),
       spineAngle: Math.round(spineAngle),
+      formScore: this.formScore,
       isFormValid,
       formErrorReason: this.formErrorReason,
       dominantProfile: 'left',
@@ -355,7 +398,8 @@ export class PushUpFSM {
       lastRepDuration: this.lastRepDuration,
       consecutiveCleanReps: this.consecutiveCleanReps,
       isComboActive: this.consecutiveCleanReps >= 3,
-      perspective: { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Auto-Angle: Calibrated' }
+      perspective: { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Auto-Angle: Calibrated' },
+      groundResult: this.lastGroundResult || { isValid: false }
     };
   }
 }
