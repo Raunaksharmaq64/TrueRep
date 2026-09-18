@@ -327,7 +327,7 @@ export default function AICoachPage() {
             </button>
 
             <button
-              onClick={() => setShowDeepTelemetry(prev => !prev)}
+              onClick={() => setShowDeepTelemetry((prev) => !prev)}
               title="Technical Biomechanics Inspector"
               className={`p-2.5 rounded-full transition-all ${
                 showDeepTelemetry
@@ -594,7 +594,7 @@ export default function AICoachPage() {
                 <PoseCanvas
                   exercise={exercise}
                   isExpanded={isExpanded}
-                  onToggleExpand={() => setIsExpanded(prev => !prev)}
+                  onToggleExpand={() => setIsExpanded((prev) => !prev)}
                   onRepUpdate={handleRepUpdate}
                   onTelemetryUpdate={handleTelemetryUpdate}
                   onVoiceFeedback={speak}
