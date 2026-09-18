@@ -1,6 +1,17 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, CameraOff, RefreshCw, AlertTriangle, Sparkles, Flame, Maximize2, Minimize2, FlipHorizontal } from 'lucide-react';
-import { getPoseLandmarker, PushUpFSM, SquatFSM, JumpingJackFSM } from '../../ai';
+import { Camera, CameraOff, RefreshCw, AlertTriangle, Sparkles, Flame, Maximize2, Minimize2, FlipHorizontal, Compass, Sliders } from 'lucide-react';
+import { 
+  getPoseLandmarker, 
+  PushUpFSM, 
+  SquatFSM, 
+  JumpingJackFSM, 
+  ExerciseClassifier, 
+  ViewpointLockoutEngine,
+  AutoFramingEngine,
+  ReadinessEngine,
+  FeedbackEngine,
+  GroundPlaneTracker
+} from '../../ai';
 import { audioAlerts } from '../../utils';
 
 // Standard MediaPipe Pose connections
@@ -37,16 +48,42 @@ function PoseCanvas({
     isMirroredRef.current = isMirrored;
   }, [isMirrored]);
   const [currentFps, setCurrentFps] = useState(0);
+  const [cameraPerspective, setCameraPerspective] = useState({
+    pitch: 'eye_level',
+    estimatedPitchDeg: 0,
+    label: 'Auto-Calibrated'
+  });
+  const lastPerspectiveLabelRef = useRef('');
+  const [isLowLight, setIsLowLight] = useState(false);
 
-  // FSM Instances
+  // FSM Instances & Biomechanical Engines
   const pushUpFSM = useRef(new PushUpFSM());
   const squatFSM = useRef(new SquatFSM());
   const jumpingJackFSM = useRef(new JumpingJackFSM());
+  const exerciseClassifier = useRef(new ExerciseClassifier());
+  const viewpointEngine = useRef(new ViewpointLockoutEngine());
+  const autoFramingEngine = useRef(new AutoFramingEngine());
+  const readinessEngine = useRef(new ReadinessEngine());
+  const feedbackEngine = useRef(new FeedbackEngine());
+
+  const [digitalFraming, setDigitalFraming] = useState({ scale: 1.0, translateX: 0, translateY: 0 });
+  const [readinessStatus, setReadinessStatus] = useState({
+    state: 'SEARCHING',
+    readinessScore: 0,
+    isReady: false,
+    isExercising: false,
+    countdownValue: 0,
+    instruction: 'Step into camera view'
+  });
+  const lastCountdownRef = useRef(-1);
+
   const landmarkerRef = useRef(null);
   const frameCountRef = useRef(0);
   const fpsTimerRef = useRef(Date.now());
   const lastDispatchedRepRef = useRef(-1);
   const lastDispatchedStateRef = useRef('');
+  const lastDepthDingStateRef = useRef('');
+  const lastClassifierCueTimeRef = useRef(0);
   const lastTelemetryTimeRef = useRef(0);
   const lastInferenceTimeRef = useRef(0);
   const lastVideoTimeRef = useRef(-1);
@@ -54,12 +91,39 @@ function PoseCanvas({
   // Transient visual particle / alert states for canvas rendering
   const floatingEffectsRef = useRef([]);
 
-  // Reset FSM on exercise change
+  const handleAutoCalibrateAngle = useCallback(() => {
+    pushUpFSM.current.reset();
+    squatFSM.current.reset();
+    jumpingJackFSM.current.reset();
+    floatingEffectsRef.current.push({
+      text: '📐 AUTO-ANGLE: DESK & FLOOR CALIBRATED',
+      color: '#10b981',
+      y: (canvasRef.current?.height || 480) * 0.45,
+      opacity: 1.0,
+      createdAt: Date.now()
+    });
+    if (onVoiceFeedback) {
+      onVoiceFeedback('Camera auto-angle calibrated!');
+    }
+  }, [onVoiceFeedback]);
+
+  // Reset FSM and engines on exercise change
   useEffect(() => {
     pushUpFSM.current.reset();
     squatFSM.current.reset();
     jumpingJackFSM.current.reset();
+    autoFramingEngine.current.reset();
+    readinessEngine.current.reset();
+    feedbackEngine.current.reset();
     floatingEffectsRef.current = [];
+    setReadinessStatus({
+      state: 'SEARCHING',
+      readinessScore: 0,
+      isReady: false,
+      isExercising: false,
+      countdownValue: 0,
+      instruction: 'Step into camera view'
+    });
   }, [exercise]);
 
   // Start Camera Stream
@@ -68,18 +132,14 @@ function PoseCanvas({
     setIsLoadingModel(true);
 
     try {
-      if (!landmarkerRef.current) {
-        landmarkerRef.current = await getPoseLandmarker();
-      }
-      setIsLoadingModel(false);
-
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error(
           'HTTP Security Constraint: Mobile browsers require HTTPS or localhost to access camera. Use HTTPS or enable chrome://flags (Insecure origins treated as secure).'
         );
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // Concurrently kick off model fetch and camera media acquisition
+      const mediaPromise = navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: facingMode,
           width: { ideal: 1280, min: 640 },
@@ -88,13 +148,43 @@ function PoseCanvas({
         audio: false
       });
 
+      const modelPromise = landmarkerRef.current 
+        ? Promise.resolve(landmarkerRef.current) 
+        : getPoseLandmarker();
+
+      // Await camera stream
+      const stream = await mediaPromise;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play();
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.muted = true;
+
+        const playVideo = async () => {
+          try {
+            await videoRef.current.play();
+          } catch (e) {
+            console.warn('Video auto-play warning:', e);
+          }
           setIsCameraActive(true);
         };
+
+        if (videoRef.current.readyState >= 1) {
+          playVideo();
+        } else {
+          videoRef.current.onloadedmetadata = () => {
+            playVideo();
+          };
+          // Fallback timer: in case onloadedmetadata is delayed by browser
+          setTimeout(() => {
+            playVideo();
+          }, 400);
+        }
       }
+
+      // Ensure AI model is fully ready
+      landmarkerRef.current = await modelPromise;
+      setIsLoadingModel(false);
     } catch (err) {
       console.error('Camera or Model error:', err);
       setIsLoadingModel(false);
@@ -118,6 +208,7 @@ function PoseCanvas({
       clearTimeout(animationFrameId.current);
     }
     setIsCameraActive(false);
+    setIsLoadingModel(false);
   }, []);
 
   // Toggle Camera Facing
@@ -149,13 +240,17 @@ function PoseCanvas({
           canvas.height = height;
         }
 
-        // FPS calculation
+        // FPS & periodic light quality sampling
         frameCountRef.current++;
         const now = Date.now();
         if (now - fpsTimerRef.current >= 1000) {
           setCurrentFps(frameCountRef.current);
           frameCountRef.current = 0;
           fpsTimerRef.current = now;
+
+          // Estimate room lighting without affecting render FPS
+          const luma = GroundPlaneTracker.estimateLuma(video);
+          setIsLowLight(luma < 30);
         }
 
         // Run Pose Inference (throttled to ~10 FPS / 100ms to keep JS event loop free for WebSockets)
@@ -171,18 +266,69 @@ function PoseCanvas({
           if (poseResult.landmarks && poseResult.landmarks.length > 0) {
             const landmarks = poseResult.landmarks[0];
 
+            // 1. Process Pre-Workout Readiness & Auto-Start Gating
+            const readiness = readinessEngine.current.processFrame(landmarks, { exercise });
+            setReadinessStatus(readiness);
+
+            // Audio countdown chime for 3.. 2.. 1.. GO
+            if (readiness.state === 'COUNTDOWN' && readiness.countdownValue !== lastCountdownRef.current) {
+              lastCountdownRef.current = readiness.countdownValue;
+              if (readiness.countdownValue > 0) {
+                audioAlerts.playDepthDing();
+                if (onVoiceFeedback) onVoiceFeedback(`${readiness.countdownValue}`);
+              }
+            } else if (readiness.state === 'ACTIVE' && lastCountdownRef.current === 1) {
+              lastCountdownRef.current = 0;
+              audioAlerts.playStartHorn();
+              if (onVoiceFeedback) onVoiceFeedback('Go!');
+            }
+
+            // 2. Dynamic Digital Auto-Framing
+            const framing = autoFramingEngine.current.computeFramingTransform(landmarks, width, height, exercise);
+            setDigitalFraming(framing);
+
             // Select active FSM
             let activeFSM = pushUpFSM.current;
             if (exercise === 'squat') activeFSM = squatFSM.current;
             if (exercise === 'jumpingjack') activeFSM = jumpingJackFSM.current;
 
+            // ALWAYS process frame in the FSM so movement is tracked, angles are calculated,
+            // and reps increment regardless of whether the user waited for countdown!
             const evalResult = activeFSM.processFrame(landmarks);
 
-            // Trigger Audio & Visual alerts
+            // If athlete is actively moving or completing reps, ensure readiness is marked exercising
+            if (evalResult.reps > 0 || (evalResult.state !== 'IDLE' && evalResult.state !== 'START_LOCKOUT')) {
+              if (!readiness.isExercising) {
+                readiness.isExercising = true;
+                readiness.state = 'ACTIVE';
+                setReadinessStatus({ ...readiness, isExercising: true, state: 'ACTIVE' });
+              }
+            }
+
+            // Exercise Motion Archetype & Viewpoint Lockout Analysis
+            const classifierResult = exerciseClassifier.current.classify(landmarks, exercise);
+            const viewpointResult = viewpointEngine.current.evaluateViewpoint(landmarks, exercise);
+
+            // If user performs an unrelated exercise, notify without penalizing reps
+            if (!classifierResult.isMatchingExercise && classifierResult.cue) {
+              const nowMs = Date.now();
+              if (nowMs - lastClassifierCueTimeRef.current > 4000) {
+                lastClassifierCueTimeRef.current = nowMs;
+                floatingEffectsRef.current.push({
+                  text: `⚡ ${classifierResult.cue}`,
+                  color: '#f59e0b',
+                  y: height * 0.35,
+                  opacity: 1.0,
+                  createdAt: nowMs
+                });
+              }
+            }
+
+            // Trigger Audio & Visual alerts whenever reps increment or faults occur
             if (evalResult.repIncremented) {
               audioAlerts.playValidRepChime();
               floatingEffectsRef.current.push({
-                text: `+1 VALID ${exercise.toUpperCase()}`,
+                text: `+1 VALID ${exercise.toUpperCase()} (${evalResult.formScore || 95}%)`,
                 color: '#10b981',
                 y: height * 0.45,
                 opacity: 1.0,
@@ -206,7 +352,13 @@ function PoseCanvas({
                 onVoiceFeedback(`Warning: ${evalResult.formErrorReason}!`);
               }
             } else if (evalResult.state === 'IN_DEPTH' || evalResult.state === 'AT_PEAK') {
-              audioAlerts.playDepthDing();
+              // Debounced: trigger depth audio chime exactly once upon hitting depth
+              if (lastDepthDingStateRef.current !== evalResult.state) {
+                audioAlerts.playDepthDing();
+                lastDepthDingStateRef.current = evalResult.state;
+              }
+            } else {
+              lastDepthDingStateRef.current = '';
             }
 
             // Real-time voice coaching on posture state transitions
@@ -218,15 +370,19 @@ function PoseCanvas({
               }
             }
 
-            // Sync rep count only on actual change (decoupling React re-renders)
+            // Sync rep count only on actual change
             if (onRepUpdate && evalResult.reps !== lastDispatchedRepRef.current) {
               lastDispatchedRepRef.current = evalResult.reps;
               onRepUpdate(evalResult.reps);
             }
 
-            // Throttle React state telemetry:
-            // 1. Immediately on rep change, fault, or state transition
-            // 2. Otherwise throttled every 150ms to update progress bars without React re-render thrashing
+            // Sync camera perspective detection
+            if (evalResult.perspective && evalResult.perspective.label && evalResult.perspective.label !== lastPerspectiveLabelRef.current) {
+              lastPerspectiveLabelRef.current = evalResult.perspective.label;
+              setCameraPerspective(evalResult.perspective);
+            }
+
+            // Throttle React state telemetry
             const shouldDispatch =
               evalResult.repIncremented ||
               evalResult.repFaultOccurred ||
@@ -236,23 +392,32 @@ function PoseCanvas({
             if (onTelemetryUpdate && shouldDispatch) {
               lastDispatchedStateRef.current = evalResult.state;
               lastTelemetryTimeRef.current = now;
-              onTelemetryUpdate(evalResult);
+              onTelemetryUpdate({
+                ...evalResult,
+                readinessScore: readiness.readinessScore,
+                readinessState: readiness.state,
+                isExercising: readiness.isExercising,
+                viewpoint: viewpointResult.viewpoint,
+                isValgusAllowed: viewpointResult.isValgusAllowed,
+                isMatchingExercise: classifierResult.isMatchingExercise,
+                exerciseCue: classifierResult.cue
+              });
             }
 
-            // Draw Skeleton (mirrored coordinate math dynamically aligned with video!)
+            // ALWAYS Draw Skeleton so the user sees tracking points on their body!
             drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exercise, isMirroredRef.current);
 
-            // Draw AR guide alignment check when getting ready in starting position
-            if (
-              evalResult.state === 'IDLE' ||
-              evalResult.state === 'START_LOCKOUT' ||
-              evalResult.state === 'CLOSED_POSITION'
-            ) {
-              drawGhostSilhouetteGuide(ctx, width, height, true);
+            // Overlay Readiness HUD when positioning, counting down, or searching
+            if (!readiness.isExercising || readiness.state === 'COUNTDOWN') {
+              drawReadinessHUD(ctx, width, height, readiness);
             }
           } else {
-            // Draw Ghost Silhouette guide when waiting for user to step in frame
-            drawGhostSilhouetteGuide(ctx, width, height, false);
+            // No landmarks detected - draw searching guide
+            drawReadinessHUD(ctx, width, height, {
+              state: 'SEARCHING',
+              readinessScore: 0,
+              instruction: 'Step into camera view to automatically begin'
+            });
           }
 
           // Render active floating particles & banners
@@ -282,23 +447,31 @@ function PoseCanvas({
 
   return (
     <div className="relative w-full h-full min-h-[420px] bg-[#02050c] rounded-2xl border border-slate-800/80 flex items-center justify-center overflow-hidden group">
-      {/* Video element (uncropped full-sensor feed) */}
-      <video
-        ref={videoRef}
-        playsInline
-        muted
-        className={`absolute inset-0 w-full h-full object-contain ${
-          isMirrored ? 'scale-x-[-1]' : ''
-        } ${isCameraActive ? 'opacity-85' : 'hidden'}`}
-      />
+      {/* Dynamic Digital Auto-Framing Viewport Container */}
+      <div 
+        className="absolute inset-0 w-full h-full flex items-center justify-center transition-transform duration-300 ease-out origin-center"
+        style={{
+          transform: `scale(${digitalFraming.scale || 1.0}) translate(${digitalFraming.translateX || 0}px, ${digitalFraming.translateY || 0}px)`
+        }}
+      >
+        {/* Video element (uncropped full-sensor feed) */}
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
+            isMirrored ? 'scale-x-[-1]' : ''
+          } ${isCameraActive ? 'opacity-85 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        />
 
-      {/* Decoupled Canvas overlay (unmirrored context: text renders crisp and readable left-to-right) */}
-      <canvas
-        ref={canvasRef}
-        className={`absolute inset-0 w-full h-full object-contain ${
-          isCameraActive ? 'z-10' : 'hidden'
-        }`}
-      />
+        {/* Decoupled Canvas overlay (unmirrored context: text renders crisp and readable left-to-right) */}
+        <canvas
+          ref={canvasRef}
+          className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
+            isCameraActive ? 'z-10 opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+        />
+      </div>
 
       {/* Inactive background pattern */}
       {!isCameraActive && (
@@ -351,17 +524,38 @@ function PoseCanvas({
       {/* Live Tactical HUD Badges */}
       {isCameraActive && (
         <>
-          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#EAB308]"></span>
-            </span>
-            <div className="bg-black/80 border border-white/20 px-2.5 py-1 rounded-full text-[10px] font-mono text-white backdrop-blur-md">
-              33 LANDMARKS • {currentFps} FPS
+          <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2">
+            <div className="bg-[#050914]/90 border border-slate-700/80 px-2.5 py-1 rounded-lg text-[10px] font-mono text-cyan-400 backdrop-blur-md flex items-center gap-1.5">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>{currentFps} FPS</span>
             </div>
+
+            <div className="bg-[#050914]/95 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-[10px] font-mono text-emerald-300 backdrop-blur-md flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+              <Compass className="w-3 h-3 text-emerald-400" />
+              <span>📐 AUTO-ANGLE: {cameraPerspective.label ? cameraPerspective.label.toUpperCase() : 'ADAPTED'}</span>
+            </div>
+
+            {isLowLight && (
+              <div className="bg-amber-950/90 border border-amber-500/70 px-2.5 py-1 rounded-lg text-[10px] font-mono text-amber-300 backdrop-blur-md flex items-center gap-1.5 animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                <span>DIM LIGHT DETECTED</span>
+              </div>
+            )}
           </div>
 
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            <button
+              onClick={handleAutoCalibrateAngle}
+              title="Auto-Calibrate Camera Angle (Auto-adapts to desk/floor height without touching laptop)"
+              className="p-2 rounded-lg bg-[#050914]/90 border border-emerald-500/50 text-emerald-300 hover:text-emerald-100 hover:border-emerald-400 backdrop-blur-md transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-[0_0_10px_rgba(16,185,129,0.15)]"
+            >
+              <Sliders className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline text-[10px] uppercase font-mono">Auto-Adjust</span>
+            </button>
+
             <button
               onClick={() => setIsMirrored(prev => !prev)}
               title={isMirrored ? 'Mirror / Selfie View is ON' : 'Mirror / Selfie View is OFF'}
@@ -474,20 +668,37 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
     }
   }
 
-  // Draw Joints
+  // Major biomechanical joints for enhanced visibility
+  const MAJOR_JOINTS = new Set([11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]);
+
+  // Draw Joints with glowing high-contrast halos
   for (let i = 0; i < landmarks.length; i++) {
     const pt = landmarks[i];
-    if (pt && (pt.visibility === undefined || pt.visibility > 0.25)) {
+    if (pt && (pt.visibility === undefined || pt.visibility > 0.12)) {
       const x = getX(pt);
       const y = getY(pt);
+      const isMajor = MAJOR_JOINTS.has(i);
 
+      ctx.save();
+      ctx.shadowColor = boneColor;
+      ctx.shadowBlur = isMajor ? 14 : 6;
       ctx.beginPath();
-      ctx.arc(x, y, isCombo ? 5.5 : 4.5, 0, 2 * Math.PI);
-      ctx.fillStyle = jointFill;
+      ctx.arc(x, y, isMajor ? (isCombo ? 7 : 6) : 4, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
       ctx.fill();
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = isMajor ? 2.5 : 1.5;
       ctx.strokeStyle = boneColor;
       ctx.stroke();
+
+      // Outer halo ring for primary kinetic vertices
+      if (isMajor) {
+        ctx.beginPath();
+        ctx.arc(x, y, isCombo ? 12 : 10, 0, 2 * Math.PI);
+        ctx.strokeStyle = boneColor;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+      ctx.restore();
     }
   }
 
@@ -497,36 +708,57 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
   const kneePt = landmarks[isRight ? 26 : 25];
   const hipPt = landmarks[isRight ? 24 : 23];
 
-  if (exercise === 'pushup' && elbowPt && evalResult.elbowAngle) {
-    const isAtDepth = evalResult.elbowAngle <= 102;
-    const jointColor = isAtDepth ? '#10b981' : '#38bdf8';
-    const ex = getX(elbowPt);
-    const ey = getY(elbowPt);
+  if (exercise === 'pushup') {
+    // 1. Render Synthetic Ground-Plane & Depth Shadow
+    if (evalResult.groundResult && evalResult.groundResult.isValid) {
+      drawSyntheticDepthShadow(ctx, width, height, evalResult.groundResult, evalResult, landmarks, isRight, isMirrored);
+    }
 
-    // Glowing target ring around active elbow vertex
-    ctx.beginPath();
-    ctx.arc(ex, ey, 16, 0, 2 * Math.PI);
-    ctx.strokeStyle = jointColor;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    if (elbowPt && evalResult.elbowAngle) {
+      const isAtDepth = evalResult.elbowAngle <= 102 || (evalResult.groundResult && evalResult.groundResult.isChestAtFloor);
+      const jointColor = isAtDepth ? '#10b981' : '#38bdf8';
+      const ex = getX(elbowPt);
+      const ey = getY(elbowPt);
 
-    drawFloatingBadge(
-      ctx,
-      ex,
-      ey - 24,
-      `${evalResult.elbowAngle}° ${isAtDepth ? '✓ DEPTH' : '→ ≤95°'}`,
-      jointColor
-    );
+      // Glowing target ring around active elbow vertex
+      ctx.beginPath();
+      ctx.arc(ex, ey, 16, 0, 2 * Math.PI);
+      ctx.strokeStyle = jointColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-    if (hipPt && evalResult.spineAngle) {
-      const isSagging = evalResult.spineAngle < 135;
       drawFloatingBadge(
         ctx,
-        getX(hipPt),
-        getY(hipPt) - 24,
-        `Core: ${evalResult.spineAngle}° ${isSagging ? '⚠️ SAG' : '✓ RIGID'}`,
-        isSagging ? '#ef4444' : '#38bdf8'
+        ex,
+        ey - 24,
+        `${evalResult.elbowAngle}° ${isAtDepth ? '✓ DEPTH' : '→ ≤95°'}`,
+        jointColor
       );
+
+      if (hipPt && evalResult.spineAngle) {
+        const isSagging = evalResult.spineAngle < 135;
+        drawFloatingBadge(
+          ctx,
+          getX(hipPt),
+          getY(hipPt) - 24,
+          `Core: ${evalResult.spineAngle}° ${isSagging ? '⚠️ SAG' : '✓ RIGID'}`,
+          isSagging ? '#ef4444' : '#38bdf8'
+        );
+      }
+    }
+
+    // Perspective angle guide for push-ups
+    if (evalResult.perspective) {
+      const isFrontal = evalResult.dominantProfile === 'center' || evalResult.perspective.label === 'Eye Level Frontal';
+      if (isFrontal) {
+        drawFloatingBadge(
+          ctx,
+          width / 2,
+          height - 24,
+          '💡 Pro Tip: Place camera at 45° angle at floor level for optimal push-up tracking',
+          '#38bdf8'
+        );
+      }
     }
   }
 
@@ -571,32 +803,167 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
 }
 
 /**
- * AR Holographic Ghost Silhouette Guide
+ * Renders Synthetic Depth Shadow and Virtual Ground-Plane
  */
-function drawGhostSilhouetteGuide(ctx, width, height, isAligned) {
+function drawSyntheticDepthShadow(ctx, width, height, groundResult, evalResult, landmarks, isRight, isMirrored) {
+  const getX = (pt) => (isMirrored ? (1.0 - pt.x) * width : pt.x * width);
+  const getY = (pt) => pt.y * height;
+
+  const shoulder = landmarks[isRight ? 12 : 11];
+  const wrist = landmarks[isRight ? 16 : 15];
+  const ankle = landmarks[isRight ? 28 : 27] || landmarks[isRight ? 26 : 25];
+
+  if (!shoulder || !wrist) return;
+
   ctx.save();
-  ctx.strokeStyle = isAligned ? 'rgba(16, 185, 129, 0.6)' : 'rgba(56, 189, 248, 0.4)';
+  const floorYPixel = groundResult.floorY * height;
+  const chestXPixel = getX(shoulder);
+  const chestYPixel = getY(shoulder);
+  const wristXPixel = getX(wrist);
+  const ankleXPixel = ankle ? getX(ankle) : wristXPixel + (isRight ? 180 : -180);
+
+  const minX = Math.min(wristXPixel, ankleXPixel) - 30;
+  const maxX = Math.max(wristXPixel, ankleXPixel) + 30;
+
+  const isDepth = groundResult.isChestAtFloor;
+  const beamColor = isDepth ? '#10b981' : groundResult.descentPercent > 65 ? '#f59e0b' : 'rgba(0, 210, 255, 0.75)';
+
+  // 1. Virtual Ground Plane Laser Line
+  ctx.strokeStyle = isDepth ? '#10b981' : 'rgba(0, 210, 255, 0.45)';
   ctx.lineWidth = 2;
-  ctx.setLineDash([8, 8]);
-
-  const boxW = width * 0.55;
-  const boxH = height * 0.75;
-  const boxX = (width - boxW) / 2;
-  const boxY = (height - boxH) / 2;
-
-  ctx.strokeRect(boxX, boxY, boxW, boxH);
-
-  // Guide message
+  ctx.setLineDash([8, 6]);
+  ctx.shadowColor = isDepth ? 'rgba(16, 185, 129, 0.7)' : 'rgba(0, 210, 255, 0.4)';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.moveTo(minX, floorYPixel);
+  ctx.lineTo(maxX, floorYPixel);
+  ctx.stroke();
   ctx.setLineDash([]);
-  const titleSize = Math.max(14, Math.round(width * 0.018));
-  ctx.fillStyle = '#38bdf8';
-  ctx.font = `bold ${titleSize}px "Plus Jakarta Sans", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText('ALIGN BODY INSIDE AR GUIDE', width / 2, boxY + titleSize + 12);
-  const subSize = Math.max(11, Math.round(width * 0.013));
-  ctx.font = `${subSize}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-  ctx.fillText('Step back until body is fully framed', width / 2, boxY + titleSize + subSize + 22);
+
+  // 2. Synthetic Depth Shadow Beam (From Chest straight down to floor plane)
+  ctx.strokeStyle = beamColor;
+  ctx.lineWidth = isDepth ? 3.5 : 2;
+  ctx.shadowColor = beamColor;
+  ctx.shadowBlur = isDepth ? 16 : 8;
+  ctx.beginPath();
+  ctx.moveTo(chestXPixel, chestYPixel);
+  ctx.lineTo(chestXPixel, floorYPixel);
+  ctx.stroke();
+
+  // 3. Ground contact target pad
+  ctx.fillStyle = beamColor;
+  ctx.beginPath();
+  ctx.arc(chestXPixel, floorYPixel, isDepth ? 6 : 4, 0, 2 * Math.PI);
+  ctx.fill();
+
+  // 4. Floating HUD readout for Chest Depth
+  const badgeText = isDepth
+    ? '✓ CHEST AT FLOOR'
+    : `Chest Descent: ${groundResult.descentPercent}%`;
+  drawFloatingBadge(ctx, chestXPixel, Math.max(chestYPixel + 20, Math.min(floorYPixel - 14, chestYPixel + 26)), badgeText, beamColor);
+
+  ctx.restore();
+}
+
+/**
+ * AR Holographic Readiness & Countdown HUD
+ * Implements Section 13 & 15 of masterPrompt 1.md
+ */
+function drawReadinessHUD(ctx, width, height, readiness) {
+  if (!readiness) return;
+
+  ctx.save();
+
+  if (readiness.state === 'COUNTDOWN') {
+    // Cinematic glowing countdown numeral
+    const count = readiness.countdownValue;
+    const text = count > 0 ? `${count}` : 'GO!';
+    const fontSize = Math.max(72, Math.round(height * 0.22));
+
+    ctx.fillStyle = count > 0 ? '#00d2ff' : '#10b981';
+    ctx.shadowColor = count > 0 ? 'rgba(0, 210, 255, 0.9)' : 'rgba(16, 185, 129, 0.9)';
+    ctx.shadowBlur = 35;
+    ctx.font = `900 ${fontSize}px "Space Grotesk", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, width / 2, height / 2);
+
+    // Subtitle
+    ctx.shadowBlur = 0;
+    ctx.font = `bold 16px "Space Grotesk", sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('GET READY TO MOVE', width / 2, height / 2 + fontSize * 0.58);
+  } else if (readiness.state === 'READY') {
+    // Sleek top HUD pill: Ready
+    const pillW = Math.min(320, width * 0.70);
+    const pillH = 44;
+    const pillX = (width - pillW) / 2;
+    const pillY = 16;
+
+    ctx.fillStyle = 'rgba(6, 26, 18, 0.88)';
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(16, 185, 129, 0.4)';
+    ctx.shadowBlur = 12;
+    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#10b981';
+    ctx.font = `bold 14px "Space Grotesk", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🟢 READY • START EXERCISING', width / 2, pillY + pillH / 2);
+  } else if (readiness.state === 'POSITIONING') {
+    // Sleek top HUD pill with human instruction
+    const pillW = Math.min(420, width * 0.85);
+    const pillH = 48;
+    const pillX = (width - pillW) / 2;
+    const pillY = 16;
+
+    ctx.fillStyle = 'rgba(26, 16, 6, 0.88)';
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(245, 158, 11, 0.4)';
+    ctx.shadowBlur = 12;
+    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = `bold 13px "Space Grotesk", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`📐 ${readiness.instruction || 'Adjust Camera Framing'}`, width / 2, pillY + 18);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `11px "Space Grotesk", sans-serif`;
+    ctx.fillText(`Readiness: ${readiness.readinessScore}% (Goal: ≥75%)`, width / 2, pillY + 34);
+  } else {
+    // SEARCHING: subtle cyan top guide pill
+    const pillW = Math.min(360, width * 0.78);
+    const pillH = 44;
+    const pillX = (width - pillW) / 2;
+    const pillY = 16;
+
+    ctx.fillStyle = 'rgba(8, 19, 38, 0.88)';
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.3)';
+    ctx.shadowBlur = 10;
+    drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = `bold 13px "Space Grotesk", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🔍 STEP INTO CAMERA VIEW TO START', width / 2, pillY + pillH / 2);
+  }
 
   ctx.restore();
 }
@@ -687,5 +1054,15 @@ function drawFloatingBadge(ctx, x, y, text, color) {
   ctx.restore();
 }
 
+function drawRoundedRect(ctx, x, y, w, h, r = 8) {
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    ctx.rect(x, y, w, h);
+  }
+}
+
 export default React.memo(PoseCanvas);
+
 
