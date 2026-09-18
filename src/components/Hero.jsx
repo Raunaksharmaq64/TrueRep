@@ -5,7 +5,14 @@ import {
   Users, 
   Instagram, 
   Youtube, 
-  Play
+  Play,
+  ShieldCheck,
+  Trophy,
+  Activity,
+  MapPin,
+  Cpu,
+  XCircle,
+  CheckCircle2
 } from 'lucide-react';
 import athleteImg from '../assets/athlete.jpg';
 
