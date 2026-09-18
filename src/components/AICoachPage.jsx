@@ -913,14 +913,14 @@ export default function AICoachPage() {
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                 <button
-                  onClick={() => handleToggleNotify(comingSoonExercise.id)}
+                  onClick={() => comingSoonExercise?.id && handleToggleNotify(comingSoonExercise.id)}
                   className={`w-full sm:flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg ${
-                    notifiedList[comingSoonExercise.id]
+                    comingSoonExercise?.id && notifiedList[comingSoonExercise.id]
                       ? 'bg-emerald-900/80 border border-emerald-500 text-emerald-200'
                       : 'bg-[#EAB308] hover:bg-yellow-400 text-[#18181B]'
                   }`}
                 >
-                  {notifiedList[comingSoonExercise.id] ? (
+                  {comingSoonExercise?.id && notifiedList[comingSoonExercise.id] ? (
                     <>
                       <Check className="w-4 h-4" />
                       <span>On Priority Beta List!</span>
