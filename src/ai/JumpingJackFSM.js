@@ -25,9 +25,11 @@ export class JumpingJackFSM {
     this.repStartTime = 0;
     this.initialClosedStanceRatio = 1.0;
     this.maxStanceReached = 1.0;
+    this.maxArmAngleDuringRep = null;
     this.lastRepDuration = 0;
     this.isFormValidInCurrentRep = true;
     this.formErrorReason = null;
+    this.formScore = 95;
     this.feedback = 'Stand upright with arms down and feet together';
     this.repHistory = [];
   }
@@ -66,11 +68,12 @@ export class JumpingJackFSM {
     const shoulderDist = Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y);
     const stanceRatio = shoulderDist > 0 ? ankleDist / shoulderDist : 1.0;
 
-    // Track maximum leg jump expansion during rep
+    // Track maximum leg jump expansion and arm reach during rep
     if (this.state === 'OPENING' || this.state === 'AT_PEAK') {
       if (stanceRatio > this.maxStanceReached) {
         this.maxStanceReached = stanceRatio;
       }
+      this.maxArmAngleDuringRep = Math.max(this.maxArmAngleDuringRep ?? 0, avgArmAngle);
     }
 
     const now = performance.now() / 1000;
@@ -83,7 +86,7 @@ export class JumpingJackFSM {
     const isClosed = avgArmAngle < 48 && stanceRatio < 1.18;
     const bothWristsOverhead = leftWrist.y < leftShoulder.y && rightWrist.y < rightShoulder.y;
     const bilateralArmElevation = leftArmAngle >= 135 && rightArmAngle >= 135;
-    const isPeakOpen = bothWristsOverhead && bilateralArmElevation && stanceRatio >= 1.40;
+    const isPeakOpen = bothWristsOverhead && bilateralArmElevation && stanceRatio >= 1.28;
 
     switch (this.state) {
       case 'IDLE':
@@ -91,6 +94,7 @@ export class JumpingJackFSM {
         this.isFormValidInCurrentRep = true;
         this.formErrorReason = null;
         this.maxStanceReached = 1.0;
+        this.maxArmAngleDuringRep = null;
 
         if (isClosed) {
           this.state = 'CLOSED_POSITION';
@@ -101,6 +105,7 @@ export class JumpingJackFSM {
         if (this.state === 'CLOSED_POSITION' && avgArmAngle > 60) {
           this.state = 'OPENING';
           this.repStartTime = now;
+          this.maxArmAngleDuringRep = avgArmAngle;
           this.isFormValidInCurrentRep = true;
           this.feedback = 'Jumping arms overhead & feet wide...';
         }
@@ -136,20 +141,33 @@ export class JumpingJackFSM {
           const duration = now - this.repStartTime;
           this.lastRepDuration = duration;
 
+          const repPeakArm = this.maxArmAngleDuringRep !== null ? this.maxArmAngleDuringRep : avgArmAngle;
           // Verify stance expansion occurred (not just hand waving in place!)
-          const hasLegExpansion = this.maxStanceReached - this.initialClosedStanceRatio >= 0.28;
-          const passedTUT = duration >= 0.50; // Minimum duration for full jump cycle
+          const hasLegExpansion = this.maxStanceReached - this.initialClosedStanceRatio >= 0.25;
+          const passedTUT = duration >= 0.45; // Minimum duration for full jump cycle (athletic cadence)
 
           if (this.isFormValidInCurrentRep && hasLegExpansion && passedTUT) {
             this.repCount++;
             this.consecutiveCleanReps++;
             repIncremented = true;
-            this.feedback = `Jumping Jack #${this.repCount} Verified (99.99% Clean)!`;
+
+            let repScore = 95;
+            if (repPeakArm >= 155 && this.maxStanceReached >= 1.40) {
+              repScore = 100;
+            } else if (repPeakArm >= 140) {
+              repScore = 96;
+            } else {
+              repScore = 92;
+            }
+            this.formScore = repScore;
+
+            this.feedback = `Jumping Jack #${this.repCount} Verified (${repScore}%)!`;
             this.repHistory.push({
               repNumber: this.repCount,
               duration,
               valid: true,
-              armAngle: avgArmAngle,
+              score: repScore,
+              armAngle: repPeakArm,
               stanceRatio: this.maxStanceReached
             });
           } else {
@@ -159,13 +177,16 @@ export class JumpingJackFSM {
             if (!hasLegExpansion) reason = 'No Leg Jump (Feet stayed stationary)';
             else if (!passedTUT) reason = 'Twitch Cheat (Too fast)';
 
+            this.formScore = Math.max(50, this.formScore - 10);
             this.feedback = `No Rep: ${reason || 'Form violation'}`;
             this.repHistory.push({
               repNumber: this.repCount + 1,
               duration,
               valid: false,
+              score: 60,
               reason: reason || 'Form fault',
-              armAngle: avgArmAngle
+              armAngle: repPeakArm,
+              stanceRatio: this.maxStanceReached
             });
           }
 
@@ -173,6 +194,7 @@ export class JumpingJackFSM {
           this.isFormValidInCurrentRep = true;
           this.formErrorReason = null;
           this.maxStanceReached = 1.0;
+          this.maxArmAngleDuringRep = null;
         }
         break;
     }
@@ -194,7 +216,7 @@ export class JumpingJackFSM {
       lastRepDuration: this.lastRepDuration,
       consecutiveCleanReps: this.consecutiveCleanReps,
       isComboActive,
-      formScore: 95,
+      formScore: this.formScore,
       perspective,
       repHistory: this.repHistory
     };
@@ -207,7 +229,7 @@ export class JumpingJackFSM {
       feedback: customFeedback || this.feedback,
       armAngle: Math.round(armAngle),
       stanceRatio: Math.round(stanceRatio * 10) / 10,
-      formScore: 95,
+      formScore: this.formScore,
       isFormValid,
       formErrorReason: this.formErrorReason,
       dominantProfile: 'front',

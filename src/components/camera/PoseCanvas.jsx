@@ -253,10 +253,10 @@ function PoseCanvas({
           setIsLowLight(luma < 30);
         }
 
-        // Run Pose Inference (throttled to ~10 FPS / 100ms to keep JS event loop free for WebSockets)
-        // Lowering to 10fps gives ~40ms extra per cycle for Supabase WebSocket message delivery.
+        // Run Pose Inference (~30 FPS / 33ms for smooth kinematics and depth tracking)
+        // High frame rate ensures rapid turnarounds and peak depths are never missed.
         const perfNow = performance.now();
-        if (perfNow - lastInferenceTimeRef.current >= 100 && video.currentTime !== lastVideoTimeRef.current) {
+        if (perfNow - lastInferenceTimeRef.current >= 33 && video.currentTime !== lastVideoTimeRef.current) {
           lastInferenceTimeRef.current = perfNow;
           lastVideoTimeRef.current = video.currentTime;
           const poseResult = landmarker.detectForVideo(video, perfNow);
@@ -361,6 +361,27 @@ function PoseCanvas({
               lastDepthDingStateRef.current = '';
             }
 
+            // Anti-jitter real-time corrective coaching during movement
+            if (!evalResult.isFormValid && evalResult.formErrorReason && !evalResult.repFaultOccurred) {
+              const cueFeedback = feedbackEngine.current.processFeedback(
+                evalResult.formErrorReason,
+                evalResult.formErrorReason,
+                true
+              );
+              if (cueFeedback.shouldEmit) {
+                floatingEffectsRef.current.push({
+                  text: `⚠️ ${cueFeedback.message}`,
+                  color: '#f59e0b',
+                  y: height * 0.40,
+                  opacity: 1.0,
+                  createdAt: Date.now()
+                });
+                if (onVoiceFeedback) {
+                  onVoiceFeedback(cueFeedback.message);
+                }
+              }
+            }
+
             // Real-time voice coaching on posture state transitions
             if (onVoiceFeedback && evalResult.state !== lastDispatchedStateRef.current) {
               if (evalResult.state === 'START_LOCKOUT') {
@@ -425,16 +446,15 @@ function PoseCanvas({
         }
       }
 
-      // Use setTimeout instead of requestAnimationFrame to yield the JS Event Loop for WebSocket network events
-      // 80ms = ~12fps render tick — plenty for smooth visuals while leaving room for Supabase sends
-      animationFrameId.current = setTimeout(renderLoop, 80);
+      // Use requestAnimationFrame for fluid 60 FPS visual rendering and skeletal overlay
+      animationFrameId.current = requestAnimationFrame(renderLoop);
     };
 
-    animationFrameId.current = setTimeout(renderLoop, 80);
+    animationFrameId.current = requestAnimationFrame(renderLoop);
 
     return () => {
       if (animationFrameId.current) {
-        clearTimeout(animationFrameId.current);
+        cancelAnimationFrame(animationFrameId.current);
       }
     };
   }, [isCameraActive, exercise, onRepUpdate, onTelemetryUpdate, onVoiceFeedback]);

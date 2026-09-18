@@ -28,6 +28,8 @@ export class PushUpFSM {
     this.lockoutEnterTime = 0;
     this.initialShoulderY = 0;
     this.maxDownwardDisplacement = 0;
+    this.minElbowAngleDuringRep = null;
+    this.achievedOlympicDepth = false;
     this.lastRepDuration = 0;
     this.isFormValidInCurrentRep = true;
     this.formErrorReason = null;
@@ -239,6 +241,8 @@ export class PushUpFSM {
           this.repStartTime = now;
           this.descentStartTime = now;
           this.initialShoulderY = shoulder.y;
+          this.minElbowAngleDuringRep = elbowAngle;
+          this.achievedOlympicDepth = false;
           this.isFormValidInCurrentRep = true;
           this.formErrorReason = null;
           this.feedback = 'Lowering chest...';
@@ -247,6 +251,10 @@ export class PushUpFSM {
 
       case 'DESCENDING':
         this.postureGuidance = `Chest descending: ${elbowAngle}° (Target: ≤90°)`;
+        this.minElbowAngleDuringRep = Math.min(this.minElbowAngleDuringRep ?? 999, elbowAngle);
+        if (groundResult?.isChestAtFloor || elbowAngle <= 85) {
+          this.achievedOlympicDepth = true;
+        }
 
         if (isAtDepth) {
           this.state = 'IN_DEPTH';
@@ -264,19 +272,26 @@ export class PushUpFSM {
           repFaultOccurred = true;
           this.consecutiveCleanReps = 0;
           this.formScore = Math.max(50, this.formScore - 15);
+          const shallowAngle = this.minElbowAngleDuringRep !== null ? this.minElbowAngleDuringRep : elbowAngle;
           this.repHistory.push({
             repNumber: this.repCount + 1,
             duration: now - this.repStartTime,
             valid: false,
             score: 55,
             reason: 'Shallow Depth (<95°)',
-            elbowAngle,
+            elbowAngle: shallowAngle,
             spineAngle
           });
+          this.minElbowAngleDuringRep = null;
+          this.achievedOlympicDepth = false;
         }
         break;
 
       case 'IN_DEPTH':
+        this.minElbowAngleDuringRep = Math.min(this.minElbowAngleDuringRep ?? 999, elbowAngle);
+        if (groundResult?.isChestAtFloor || elbowAngle <= 85) {
+          this.achievedOlympicDepth = true;
+        }
         // Dead-band hysteresis: must push back upward past 102°
         if (elbowAngle > 102) {
           this.state = 'ASCENDING';
@@ -303,15 +318,22 @@ export class PushUpFSM {
             this.consecutiveCleanReps++;
             repIncremented = true;
 
-            // Graded Sports-Science Scoring
+            // Graded Sports-Science Scoring using peak rep depth
+            const repMinElbow = this.minElbowAngleDuringRep !== null ? this.minElbowAngleDuringRep : elbowAngle;
             let repScore = 95;
             let coachFeedback = `Rep #${this.repCount} Verified!`;
-            if (elbowAngle <= 85) {
+            if (repMinElbow <= 85 || this.achievedOlympicDepth) {
               repScore = 100;
               coachFeedback = `Rep #${this.repCount}: 100% Olympic Chest Depth!`;
-            } else if (elbowAngle > 90) {
-              repScore = 85;
+            } else if (repMinElbow <= 95) {
+              repScore = 98;
+              coachFeedback = `Rep #${this.repCount}: Excellent 90° Form!`;
+            } else if (repMinElbow <= 102) {
+              repScore = 92;
               coachFeedback = `Rep #${this.repCount}: Solid! Go 1" lower for 100%`;
+            } else {
+              repScore = 88;
+              coachFeedback = `Rep #${this.repCount}: Completed!`;
             }
             this.formScore = repScore;
 
@@ -322,7 +344,7 @@ export class PushUpFSM {
               duration,
               valid: true,
               score: repScore,
-              elbowAngle,
+              elbowAngle: repMinElbow,
               spineAngle
             });
           } else {
@@ -342,7 +364,7 @@ export class PushUpFSM {
               valid: false,
               score: 60,
               reason: reason || 'Form fault',
-              elbowAngle,
+              elbowAngle: this.minElbowAngleDuringRep !== null ? this.minElbowAngleDuringRep : elbowAngle,
               spineAngle
             });
           }
@@ -352,6 +374,8 @@ export class PushUpFSM {
           this.isFormValidInCurrentRep = true;
           this.formErrorReason = null;
           this.maxDownwardDisplacement = 0;
+          this.minElbowAngleDuringRep = null;
+          this.achievedOlympicDepth = false;
         }
         break;
     }

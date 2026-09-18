@@ -25,6 +25,8 @@ export class SquatFSM {
     this.initialHipY = 0;
     this.standingHipY = 0;
     this.maxDownwardDisplacement = 0;
+    this.minKneeAngleDuringRep = null;
+    this.achievedOlympicDepth = false;
     this.lastRepDuration = 0;
     this.isFormValidInCurrentRep = true;
     this.formErrorReason = null;
@@ -130,6 +132,14 @@ export class SquatFSM {
     // Uses stance-compensated valgus detection so sumo squats don't trigger false alerts
     // =========================================================================
     const isActiveMotion = this.state === 'DESCENDING' || this.state === 'IN_DEPTH' || this.state === 'ASCENDING';
+    const bodyYaw = KinematicsMath.estimateBodyYaw(
+      landmarks[11],
+      landmarks[12],
+      landmarks[23],
+      landmarks[24]
+    );
+    const isSideView = bodyYaw.viewAngle === 'side';
+
     const valgusResult = KinematicsMath.detectKneeValgusAdaptive(
       landmarks[25],
       landmarks[26],
@@ -139,7 +149,9 @@ export class SquatFSM {
     );
 
     if (isActiveMotion) {
-      if (valgusResult.hasValgus) {
+      // Gate knee valgus: only penalize when facing camera (frontal/diagonal).
+      // In side view, knees overlap in 2D perspective and ratio collapses naturally!
+      if (!isSideView && valgusResult.hasValgus) {
         this.isFormValidInCurrentRep = false;
         this.formErrorReason = 'Knees Caving In (Push knees outward)';
       }
@@ -196,6 +208,8 @@ export class SquatFSM {
           this.repStartTime = now;
           this.descentStartTime = now;
           this.initialHipY = hip.y;
+          this.minKneeAngleDuringRep = kneeAngle;
+          this.achievedOlympicDepth = false;
           this.isFormValidInCurrentRep = true;
           this.formErrorReason = null;
           this.feedback = 'Squatting down into the hole...';
@@ -204,6 +218,10 @@ export class SquatFSM {
 
       case 'DESCENDING':
         this.postureGuidance = `Thighs descending: ${kneeAngle}° (Target: Parallel)`;
+        this.minKneeAngleDuringRep = Math.min(this.minKneeAngleDuringRep ?? 999, kneeAngle);
+        if (relativeDepth.isOlympicDeep || kneeAngle <= 85) {
+          this.achievedOlympicDepth = true;
+        }
 
         if (isAtDepth) {
           this.state = 'IN_DEPTH';
@@ -221,19 +239,26 @@ export class SquatFSM {
           repFaultOccurred = true;
           this.consecutiveCleanReps = 0;
           this.formScore = Math.max(50, this.formScore - 15);
+          const shallowAngle = this.minKneeAngleDuringRep !== null ? this.minKneeAngleDuringRep : kneeAngle;
           this.repHistory.push({
             repNumber: this.repCount + 1,
             duration: now - this.repStartTime,
             valid: false,
             score: 55,
             reason: 'Half-Squat (>95°)',
-            kneeAngle,
+            kneeAngle: shallowAngle,
             hipAngle
           });
+          this.minKneeAngleDuringRep = null;
+          this.achievedOlympicDepth = false;
         }
         break;
 
       case 'IN_DEPTH':
+        this.minKneeAngleDuringRep = Math.min(this.minKneeAngleDuringRep ?? 999, kneeAngle);
+        if (relativeDepth.isOlympicDeep || kneeAngle <= 85) {
+          this.achievedOlympicDepth = true;
+        }
         // Dead-band hysteresis: must push upward past 102° to begin ascent
         if (kneeAngle > 102) {
           this.state = 'ASCENDING';
@@ -259,15 +284,22 @@ export class SquatFSM {
             this.consecutiveCleanReps++;
             repIncremented = true;
 
-            // Graded Sports-Science Scoring
+            // Graded Sports-Science Scoring using peak rep depth
+            const repMinKnee = this.minKneeAngleDuringRep !== null ? this.minKneeAngleDuringRep : kneeAngle;
             let repScore = 95;
             let coachFeedback = `Squat #${this.repCount} Verified!`;
-            if (relativeDepth.isOlympicDeep || kneeAngle <= 85) {
+            if (this.achievedOlympicDepth || repMinKnee <= 85) {
               repScore = 100;
               coachFeedback = `Squat #${this.repCount}: 100% Olympic Depth!`;
-            } else if (kneeAngle > 90) {
-              repScore = 85;
+            } else if (repMinKnee <= 95) {
+              repScore = 98;
+              coachFeedback = `Squat #${this.repCount}: Parallel Depth Hit!`;
+            } else if (repMinKnee <= 102) {
+              repScore = 92;
               coachFeedback = `Squat #${this.repCount}: Solid! Squat 1" deeper for 100%`;
+            } else {
+              repScore = 88;
+              coachFeedback = `Squat #${this.repCount}: Completed!`;
             }
             this.formScore = repScore;
 
@@ -278,7 +310,7 @@ export class SquatFSM {
               duration,
               valid: true,
               score: repScore,
-              kneeAngle,
+              kneeAngle: repMinKnee,
               hipAngle
             });
           } else {
@@ -297,7 +329,7 @@ export class SquatFSM {
               valid: false,
               score: 60,
               reason: reason || 'Form fault',
-              kneeAngle,
+              kneeAngle: this.minKneeAngleDuringRep !== null ? this.minKneeAngleDuringRep : kneeAngle,
               hipAngle
             });
           }
@@ -306,6 +338,8 @@ export class SquatFSM {
           this.isFormValidInCurrentRep = true;
           this.formErrorReason = null;
           this.maxDownwardDisplacement = 0;
+          this.minKneeAngleDuringRep = null;
+          this.achievedOlympicDepth = false;
         }
         break;
     }
