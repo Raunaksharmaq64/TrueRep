@@ -3,3 +3,4 @@
  */
 
 export { useWebSpeech } from './useWebSpeech';
+export { useNearbyDevices } from './useNearbyDevices';
