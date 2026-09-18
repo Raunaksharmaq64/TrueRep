@@ -1,0 +1,12 @@
+services:
+  truerep-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-https://mygsipxhiijhfqhxsuuy.supabase.co}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15Z3NpcHhoaWlqaGZxaHhzdXV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzQ4NDIsImV4cCI6MjEwNTA1MDg0Mn0.wwsAu8jce2knrR4E23bOYKhWexJddyQ0sE_ZX987_kw}
+    container_name: truerep_app
+    ports:
+      - "8080:80"
+    restart: unless-stopped
