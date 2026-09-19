@@ -5,7 +5,19 @@ import {
   Users, 
   Instagram, 
   Youtube, 
-  Play
+  Play,
+  ShieldCheck,
+  Trophy,
+  MapPin,
+  ArrowRight,
+  Zap,
+  Cpu,
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  Lock,
+  Sparkles
 } from 'lucide-react';
 import athleteImg from '../assets/athlete.jpg';
 

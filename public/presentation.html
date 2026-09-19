@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrueRep Architecture & Implementation Presentation</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- KaTeX for LaTeX Math -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <!-- Mermaid.js for Diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              cream: '#F4F1EA',
+              card: '#FFFFFF',
+              charcoal: '#1E222A',
+              border: '#E2E8F0',
+              gold: '#EAB308',
+              emerald: '#10B981',
+              cyan: '#06B6D4',
+              purple: '#8B5CF6'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            heading: ['Outfit', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0F1115;
+      color: #F4F1EA;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow: hidden;
+    }
+    .slide {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+      transform: scale(0.98);
+      height: calc(100vh - 110px);
+    }
+    .slide.active {
+      display: flex;
+      opacity: 1;
+      transform: scale(1);
+    }
+    .glass-card {
+      background: rgba(30, 34, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glow-gold {
+      box-shadow: 0 0 35px rgba(234, 179, 8, 0.25);
+    }
+    .mermaid {
+      background: rgba(15, 17, 21, 0.6);
+      border-radius: 1rem;
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between select-none">
+
+  <!-- TOP HEADER NAVBAR -->
+  <header class="h-16 px-8 flex items-center justify-between border-b border-slate-800 bg-[#14171F]">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold font-heading">
+        TR
+      </div>
+      <div>
+        <h1 class="font-bold text-white tracking-wide font-heading flex items-center gap-2">
+          TrueRep <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">Architecture & Deck</span>
+        </h1>
+        <p class="text-xs text-slate-400">3-Tier Matchmaking • Campus Gyms • Escalating Staking • XP Engine</p>
+      </div>
+    </div>
+
+    <!-- Slide Index Pill -->
+    <div class="flex items-center gap-4">
+      <span id="slideCounter" class="text-sm font-mono text-amber-400 font-semibold px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700">
+        Slide 1 of 10
+      </span>
+      <button onclick="toggleFullscreen()" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-expand"></i> Fullscreen
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SLIDE STACK MAIN CONTAINER -->
+  <main class="flex-1 p-6 md:p-8 overflow-y-auto">
+    
+    <!-- SLIDE 1: TITLE SLIDE -->
+    <section class="slide active flex-col justify-center items-center text-center max-w-5xl mx-auto h-full">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-sm font-semibold mb-6">
+        <i class="fa-solid fa-bolt"></i> Official TrueRep Technical Blueprint
+      </div>
+      <h1 class="text-4xl md:text-6xl font-black text-white font-heading tracking-tight mb-4 leading-tight">
+        Next-Gen Edge AI Coaching & <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-200 to-emerald-400">Campus Territory Engine</span>
+      </h1>
+      <p class="text-lg md:text-xl text-slate-300 max-w-3xl mb-8 leading-relaxed">
+        A unified architectural blueprint featuring 3-Tier Demographic Matchmaking (AFS, MMR, RR), Pokémon GO style Campus Gyms, Escalating Token Staking, and Equation-driven XP Progression.
+      </p>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-3xl mb-10">
+        <div class="glass-card p-4 rounded-2xl text-center">
+          <i class="fa-solid fa-[#EAB308] fa-calculator text-2xl text-amber-400 mb-2"></i>
+          <h4 class="font-bold text-white text-sm">AFS Engine</h4>
+          <p class="text-xs text-slate-400 mt-1">Age-Graded Equalizer</p>
+        </div>
+        <div class="glass-card p-4 rounded-2xl text-center">
+          <i class="fa-solid fa-trophy text-2xl text-emerald-400 mb-2"></i>
+          <h4 class="font-bold text-white text-sm">MMR & RR Elo</h4>
+          <p class="text-xs text-slate-400 mt-1">Rank Ladders & Shields</p>
+        </div>
+        <div class="glass-card p-4 rounded-2xl text-center">
+          <i class="fa-solid fa-map-location-dot text-2xl text-cyan-400 mb-2"></i>
+          <h4 class="font-bold text-white text-sm">Campus Gyms</h4>
+          <p class="text-xs text-slate-400 mt-1">Geofenced Arenas</p>
+        </div>
+        <div class="glass-card p-4 rounded-2xl text-center">
+          <i class="fa-solid fa-[#8B5CF6] fa-coins text-2xl text-purple-400 mb-2"></i>
+          <h4 class="font-bold text-white text-sm">10-Min Staking</h4>
+          <p class="text-xs text-slate-400 mt-1">Escalating Token Yields</p>
+        </div>
+      </div>
+
+      <div class="text-xs font-mono text-slate-500">
+        Press <kbd class="px-2 py-1 bg-slate-800 rounded border border-slate-700 text-slate-300">→</kbd> or click Next to navigate slides
+      </div>
+    </section>
+
+    <!-- SLIDE 2: EXECUTIVE SYSTEM OVERVIEW -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">01 / ARCHITECTURE OVERVIEW</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Unified Hybrid System Design</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="glass-card p-6 rounded-2xl border-l-4 border-amber-400">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg"><i class="fa-solid fa-microchip"></i></span>
+            <h3 class="text-xl font-bold text-white">On-Device Edge Computation</h3>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-300">
+            <li class="flex items-start gap-2"><i class="fa-solid fa-check text-emerald-400 mt-1"></i> MediaPipe BlazePose Heavy running 100% on-device WebAssembly GPU.</li>
+            <li class="flex items-start gap-2"><i class="fa-solid fa-check text-emerald-400 mt-1"></i> Sub-14ms joint vector angle calculations ($\theta = \arccos\frac{\mathbf{u}\cdot\mathbf{v}}{\|\mathbf{u}\|\|\mathbf{v}\|}$).</li>
+            <li class="flex items-start gap-2"><i class="fa-solid fa-check text-emerald-400 mt-1"></i> Zero latency video processing & 100% camera privacy guarantee.</li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl border-l-4 border-cyan-400">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-lg"><i class="fa-solid fa-cloud-bolt"></i></span>
+            <h3 class="text-xl font-bold text-white">Supabase Realtime Cloud Sync</h3>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-300">
+            <li class="flex items-start gap-2"><i class="fa-solid fa-check text-emerald-400 mt-1"></i> WebRTC peer signaling & presence discovery for 1v1 synchronized duels.</li>
+            <li class="flex items-start gap-2"><i class="fa-solid fa-check text-emerald-400 mt-1"></i> PostgreSQL Row-Level Security (RLS) protecting user biometrics.</li>
+            <li class="flex items-start gap-2"><i class="fa-solid fa-check text-emerald-400 mt-1"></i> Atomic RPC stored procedures for weekly gym resets & token payouts.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl flex items-center justify-between text-xs text-slate-400 font-mono">
+        <span>Frontend Stack: React 18 + Vite + TailwindCSS</span>
+        <span>Database: Supabase PostgreSQL + pgvector</span>
+        <span>Networking: WebRTC + Supabase Realtime Channels</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: SYSTEM DATA FLOW DIAGRAM -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">02 / END-TO-END FLOW</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Complete System Data Flow Diagram</h2>
+      </div>
+
+      <div class="glass-card p-6 rounded-2xl my-auto">
+        <div class="mermaid text-center">
+graph TD
+    Client[React Client + MediaPipe GPU] -->|Verified Reps & TUT| LocalDB[IndexedDB Offline Cache]
+    Client -->|WebRTC Signaling| Peer[Opponent Device]
+    Client -->|Atomic RPC Call| Supabase[(Supabase PostgreSQL)]
+    
+    subgraph Supabase Cloud Services
+        Supabase --> AFS[AFS Demographic Engine]
+        Supabase --> MMR[MMR / RR Elo Engine]
+        Supabase --> Gym[Campus Gym Ledger]
+        Supabase --> XP[XP & Level Calculation]
+    end
+    
+    Gym -->|10-Min Escalating Yield| TokenDB[RepToken Wallet]
+    Gym -->|Sunday Reset Cron| Archive[Gym Weekly Archive]
+        </div>
+      </div>
+
+      <div class="text-xs text-slate-400 font-mono text-center">
+        Data transfers use optimistic local-first updates with automatic background synchronization via client idempotency keys.
+      </div>
+    </section>
+
+    <!-- SLIDE 4: 3-TIER MATCHMAKING ENGINE -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">03 / COMPETITIVE ENGINE</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">3-Tier Matchmaking (AFS, MMR, RR)</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+        <div class="glass-card p-5 rounded-2xl border border-amber-500/30">
+          <div class="inline-block px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs font-bold mb-3">TIER 1: AFS</div>
+          <h3 class="text-lg font-bold text-white mb-2">Age-Fitness Score</h3>
+          <p class="text-xs text-slate-300 mb-3">Normalizes performance across age, weight, and form accuracy using WAVA coefficients.</p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-amber-300">
+            K_age(A) = 1.0 + 0.008(A - 30)^1.15
+          </div>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl border border-emerald-500/30">
+          <div class="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold mb-3">TIER 2: MMR</div>
+          <h3 class="text-lg font-bold text-white mb-2">Matchmaking Rating</h3>
+          <p class="text-xs text-slate-300 mb-3">Glicko-2 adaptation matching players of equal skill & win streak volatility.</p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-emerald-300">
+            ΔMMR = K(S_act - S_exp)(1 + 0.15*Streak)
+          </div>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl border border-purple-500/30">
+          <div class="inline-block px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold mb-3">TIER 3: RR</div>
+          <h3 class="text-lg font-bold text-white mb-2">Rank Rating Divisions</h3>
+          <p class="text-xs text-slate-300 mb-3">Public rank ladder (Iron to TrueRep Titan) with demotion shields.</p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-purple-300">
+            Brackets: Iron ➔ Gold ➔ Titan (1500+)
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl text-xs text-slate-300 flex items-center justify-between">
+        <span><i class="fa-solid fa-handshake-angle text-amber-400 mr-2"></i> Composite Match Score (CMS): Matches players within ±50 MMR with demographic equity.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: XP & REWARD PROGRESSION SYSTEM -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">04 / PROGRESSION ECONOMY</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Mathematical XP & Level Curve</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="glass-card p-6 rounded-2xl space-y-4">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-calculator text-amber-400"></i> Workout XP Equation</h3>
+          <div class="p-4 bg-slate-900 rounded-xl font-mono text-xs text-amber-300 border border-slate-800">
+            XP_base = [ (TUT_sec * 2) + (Reps * 10) ] * Q_form * I_intensity * M_streak
+          </div>
+          <ul class="text-xs text-slate-300 space-y-1.5">
+            <li>• <strong class="text-white">Q_form:</strong> Form accuracy factor (1.25x for flawless depth).</li>
+            <li>• <strong class="text-white">I_intensity:</strong> Exercise difficulty weighting (Pullups = 1.4x).</li>
+            <li>• <strong class="text-white">M_streak:</strong> Daily streak bonus (Up to 1.5x at 10 days).</li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl space-y-4">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="fa-solid fa-chart-line text-emerald-400"></i> Exponential Level Curve</h3>
+          <div class="p-4 bg-slate-900 rounded-xl font-mono text-xs text-emerald-300 border border-slate-800">
+            XP_required(L) = 100 * L^1.6  ⟺  L(XP) = ⌊(XP / 100)^(1/1.6)⌋ + 1
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+            <div class="bg-slate-800 p-2 rounded-lg">Level 1: 0 XP</div>
+            <div class="bg-slate-800 p-2 rounded-lg text-amber-400">Level 10: 3.9k XP</div>
+            <div class="bg-slate-800 p-2 rounded-lg text-purple-400">Level 50: 52k XP</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl text-xs text-slate-300 flex items-center justify-between">
+        <span><i class="fa-solid fa-coins text-amber-400 mr-2"></i> RepToken Economy: RT = ⌊XP * 0.10⌋ + 50 RT Daily Bonus. Used for store cosmetics & custom voice packs.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: CAMPUS GYMS (POKEMON GO MODEL) -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">05 / TERRITORIAL PLATFORM</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Campus Gyms & Spatial Geofencing</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="glass-card p-6 rounded-2xl space-y-3">
+          <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
+            <i class="fa-solid fa-location-dot"></i> Geofenced Campus Arenas
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Campus geography is partitioned into interactive Gym Arenas (e.g., <em>Library Quad Arena</em>, <em>Hostel 4 Strength Zone</em>) bounded by 100m GPS geofences.
+          </p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-cyan-300">
+            Damage_dealt = [ (TUT * 3) + (Reps * 15) ] * Q_form * K_age
+          </div>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl space-y-3">
+          <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+            <i class="fa-solid fa-shield-halved"></i> Gym Overthrow & Defense HP
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Each Gym has 10,000 max HP. When an attacker's verified workout damage reduces HP to 0, the Gym turns neutral and the attacker becomes the new <strong>Gym Leader</strong>!
+          </p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-emerald-300">
+            HP_new = max(0, HP_current - Damage_dealt)
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl text-xs text-slate-300 flex items-center justify-between">
+        <span><i class="fa-solid fa-people-group text-purple-400 mr-2"></i> Squad Domination: Factions (Red Titans, Blue Vanguard, Green Cybernetics) compete for campus dominance.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: ESCALATING STAKING & TIE BREAKERS -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">06 / STAKING & TIE-BREAKERS</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Approved Staking & Tie-Breaker Rules</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="glass-card p-6 rounded-2xl space-y-3 border-l-4 border-amber-400">
+          <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="fa-solid fa-[#EAB308] fa-scale-balanced text-amber-400"></i> AFS Tie-Breaker Rule</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            If two athletes achieve equal reps or TUT, the tie is broken strictly by their <strong>Age-Fitness Score (AFS)</strong>. Higher age-graded effort wins!
+          </p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-amber-300">
+            Winner = argmax(Score, AFS_score)
+          </div>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl space-y-3 border-l-4 border-purple-400">
+          <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="fa-solid fa-[#8B5CF6] fa-clock text-purple-400"></i> 10-Min Escalating Staking</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Holding #1 spot for >10 mins activates RepToken staking yields that escalate over time to reward sustained dominance.
+          </p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-purple-300">
+            Yield: +5 RT (10m) ➔ +10 RT (20m) ➔ +20 RT/10m (40m+)
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl text-xs text-slate-300 flex items-center justify-between">
+        <span><i class="fa-solid fa-bell text-emerald-400 mr-2"></i> Takeover Alerts: Realtime push notification instantly alerts deposed leader when their #1 spot is overtaken.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: MULTI-EXERCISE LEADERBOARDS & 7-DAY RESETS -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">07 / WEEKLY CYCLES</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Multi-Exercise Boards & 7-Day Reset</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="glass-card p-6 rounded-2xl space-y-3">
+          <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="fa-solid fa-dumbbell text-amber-400"></i> Gym Leadership Points (GLP)</h3>
+          <p class="text-xs text-slate-300">
+            Each Gym features separate exercise boards (Squats, Pushups, Pullups, Plank). Overall Gym Leader is decided by total GLP across all categories:
+          </p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-amber-300">
+            GLP = ∑ max(0, 100 - (Rank_e - 1) * 15)
+          </div>
+        </div>
+
+        <div class="glass-card p-6 rounded-2xl space-y-3">
+          <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="fa-solid fa-calendar-week text-emerald-400"></i> Sunday Midnight Reset Cron</h3>
+          <p class="text-xs text-slate-300">
+            Leaderboards reset every Sunday at 00:00 GMT. Weekly champions are crowned in `gym_weekly_archive` and awarded master badges & 500 RT!
+          </p>
+          <div class="p-3 bg-slate-900 rounded-xl text-xs font-mono text-emerald-300">
+            Cron: process_weekly_gym_resets()
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl text-xs text-slate-300 flex items-center justify-between">
+        <span><i class="fa-solid fa-rotate text-cyan-400 mr-2"></i> Weekly Cycle guarantees fresh competitive opportunities for new campus contenders every week.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: SUPABASE DATABASE & RPC STORED PROCEDURES -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">08 / DATABASE LAYER</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Supabase Database Schemas & Stored Procedures</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+        <div class="glass-card p-5 rounded-2xl space-y-2">
+          <h4 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-database text-amber-400"></i> DDL Core Tables</h4>
+          <ul class="text-xs font-mono text-slate-300 space-y-1">
+            <li class="bg-slate-900 p-2 rounded">public.profiles (auth, xp, rep_tokens)</li>
+            <li class="bg-slate-900 p-2 rounded">public.user_stats (mmr, rr, afs_score)</li>
+            <li class="bg-slate-900 p-2 rounded">public.campus_gyms (lat, long, radius)</li>
+            <li class="bg-slate-900 p-2 rounded">public.gym_exercise_leaderboards</li>
+            <li class="bg-slate-900 p-2 rounded">public.gym_leader_staking (10m yield)</li>
+          </ul>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl space-y-2">
+          <h4 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-gears text-emerald-400"></i> Atomic RPC Stored Procedures</h4>
+          <ul class="text-xs font-mono text-slate-300 space-y-1">
+            <li class="bg-slate-900 p-2 rounded text-amber-300">grant_workout_xp()</li>
+            <li class="bg-slate-900 p-2 rounded text-emerald-300">attack_campus_gym()</li>
+            <li class="bg-slate-900 p-2 rounded text-purple-300">process_escalating_gym_staking()</li>
+            <li class="bg-slate-900 p-2 rounded text-cyan-300">process_weekly_gym_resets()</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 rounded-xl text-xs text-slate-300 flex items-center justify-between">
+        <span><i class="fa-solid fa-lock text-emerald-400 mr-2"></i> All database transactions execute under PostgreSQL SECURITY DEFINER for absolute integrity.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: ROADMAP & NEXT STEPS -->
+    <section class="slide flex-col justify-between max-w-6xl mx-auto h-full">
+      <div>
+        <div class="text-xs font-mono text-amber-400 uppercase tracking-wider mb-1">09 / ROADMAP</div>
+        <h2 class="text-3xl font-bold text-white font-heading mb-4">Multi-Phase Execution Roadmap</h2>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 my-auto">
+        <div class="glass-card p-5 rounded-2xl border-t-4 border-amber-400">
+          <span class="text-xs font-mono text-amber-400 font-bold">PHASE 1</span>
+          <h4 class="font-bold text-white text-sm mt-1">Core Cloud & XP</h4>
+          <p class="text-xs text-slate-400 mt-2">Supabase Auth, profiles, workout persistence, grant_workout_xp RPC.</p>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl border-t-4 border-emerald-400">
+          <span class="text-xs font-mono text-emerald-400 font-bold">PHASE 2</span>
+          <h4 class="font-bold text-white text-sm mt-1">3-Tier Matchmaking</h4>
+          <p class="text-xs text-slate-400 mt-2">AFS demographic formulas, MMR/RR brackets, Realtime 1v1 matchmaker.</p>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl border-t-4 border-cyan-400">
+          <span class="text-xs font-mono text-cyan-400 font-bold">PHASE 3</span>
+          <h4 class="font-bold text-white text-sm mt-1">Campus Gyms</h4>
+          <p class="text-xs text-slate-400 mt-2">Geofence arenas, 10-min escalating yields, Sunday weekly resets.</p>
+        </div>
+
+        <div class="glass-card p-5 rounded-2xl border-t-4 border-purple-400">
+          <span class="text-xs font-mono text-purple-400 font-bold">PHASE 4</span>
+          <h4 class="font-bold text-white text-sm mt-1">AI Coach Vector Memory</h4>
+          <p class="text-xs text-slate-400 mt-2">pgvector embeddings for personalized biomechanical coaching advice.</p>
+        </div>
+      </div>
+
+      <div class="glass-card p-6 rounded-2xl text-center glow-gold">
+        <h3 class="text-xl font-bold text-white mb-2">Ready for Phase 1 Execution</h3>
+        <p class="text-xs text-slate-300 max-w-xl mx-auto mb-4">
+          All architectural blueprints, database DDL scripts, mathematical formulas, and UI wireframes are approved and finalized.
+        </p>
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-charcoal font-bold text-xs rounded-xl shadow-lg">
+          <i class="fa-solid fa-circle-check"></i> Implementation Plan Fully Approved
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM FOOTER & SLIDE NAV CONTROLS -->
+  <footer class="h-16 px-8 flex items-center justify-between border-t border-slate-800 bg-[#14171F]">
+    <div class="flex items-center gap-2 text-xs font-mono text-slate-400">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      TrueRep Presentation Mode
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="flex items-center gap-3">
+      <button id="prevBtn" onclick="prevSlide()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold border border-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+        <i class="fa-solid fa-chevron-left mr-1"></i> Previous
+      </button>
+
+      <!-- Slide Indicator Dots -->
+      <div id="dotContainer" class="flex items-center gap-1.5 px-3">
+        <!-- Javascript renders dots -->
+      </div>
+
+      <button id="nextBtn" onclick="nextSlide()" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-charcoal rounded-xl text-xs font-bold transition">
+        Next <i class="fa-solid fa-chevron-right ml-1"></i>
+      </button>
+    </div>
+  </footer>
+
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    const counter = document.getElementById('slideCounter');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const dotContainer = document.getElementById('dotContainer');
+
+    // Build Dots
+    slides.forEach((_, idx) => {
+      const dot = document.createElement('button');
+      dot.className = `w-2.5 h-2.5 rounded-full transition-all ${idx === 0 ? 'bg-amber-400 w-6' : 'bg-slate-700'}`;
+      dot.onclick = () => goToSlide(idx);
+      dotContainer.appendChild(dot);
+    });
+
+    function updateSlide() {
+      slides.forEach((slide, idx) => {
+        if (idx === currentSlide) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
+        }
+      });
+
+      counter.textContent = `Slide ${currentSlide + 1} of ${totalSlides}`;
+      prevBtn.disabled = currentSlide === 0;
+      nextBtn.innerHTML = currentSlide === totalSlides - 1 ? 'Finish <i class="fa-solid fa-check ml-1"></i>' : 'Next <i class="fa-solid fa-chevron-right ml-1"></i>';
+
+      // Update Dots
+      const dots = dotContainer.children;
+      Array.from(dots).forEach((dot, idx) => {
+        if (idx === currentSlide) {
+          dot.className = 'w-6 h-2.5 rounded-full bg-amber-400 transition-all';
+        } else {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-700 transition-all';
+        }
+      });
+
+      // Render mermaid if visible
+      setTimeout(() => {
+        mermaid.contentLoaded();
+      }, 100);
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(idx) {
+      currentSlide = idx;
+      updateSlide();
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Keyboard Arrow Navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Space') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        prevSlide();
+      }
+    });
+
+    // Initialize Mermaid
+    mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+  </script>
+</body>
+</html>
