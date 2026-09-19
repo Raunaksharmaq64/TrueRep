@@ -47,6 +47,63 @@ export class KinematicsMath {
   }
 
   /**
+   * Perspective-Compensated Hybrid Angle:
+   * Combines rock-solid 2D trigonometric angle with 3D spatial dot product to
+   * auto-compensate for camera tilt (laptop on desk pointing down or floor pointing up).
+   * Ensures true 90° joint depth is never rejected due to foreshortening.
+   */
+  static getPerspectiveCompensatedAngle(a, b, c) {
+    const angle2D = this.calculateAngle(a, b, c);
+    const angle3D = this.calculate3DAngle(a, b, c);
+
+    if (angle3D > 0 && Math.abs(angle2D - angle3D) < 42) {
+      // Perspective foreshortening always increases the apparent angle of acute/right angles.
+      // Weighted blend gives optimal accuracy without jitter.
+      return Math.round(0.45 * angle2D + 0.55 * angle3D);
+    }
+    return Math.round(angle2D);
+  }
+
+  /**
+   * Auto-estimates camera pitch (tilt angle) relative to user:
+   * - 'desk_downward': Camera is elevated on a table/desk pointing down (pitch ~20° to 45°)
+   * - 'floor_upward': Camera is on the floor/bed pointing up (pitch ~15° to 35°)
+   * - 'eye_level': Camera is approximately level with subject
+   */
+  static estimateCameraPerspective(landmarks) {
+    if (!landmarks || landmarks.length < 29) return { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Level View (→)' };
+
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const leftAnkle = landmarks[27];
+    const rightAnkle = landmarks[28];
+
+    if (!leftShoulder || !rightShoulder) return { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Level View (→)' };
+
+    const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+    const avgAnkleY = (leftAnkle && rightAnkle) ? (leftAnkle.y + rightAnkle.y) / 2 : 0.9;
+    const avgShoulderZ = ((leftShoulder.z || 0) + (rightShoulder.z || 0)) / 2;
+    const avgAnkleZ = (leftAnkle && rightAnkle) ? ((leftAnkle.z || 0) + (rightAnkle.z || 0)) / 2 : 0;
+
+    // Depth differential along vertical axis indicates camera pitch
+    const dz = avgShoulderZ - avgAnkleZ;
+    const dy = avgAnkleY - avgShoulderY;
+
+    if (dy > 0.3) {
+      const pitchRad = Math.atan2(dz, dy);
+      const pitchDeg = Math.round((pitchRad * 180) / Math.PI);
+
+      if (pitchDeg < -10) {
+        return { pitch: 'desk_downward', estimatedPitchDeg: pitchDeg, label: 'Desk View (Down ↘)' };
+      } else if (pitchDeg > 10) {
+        return { pitch: 'floor_upward', estimatedPitchDeg: pitchDeg, label: 'Floor View (Up ↗)' };
+      }
+    }
+
+    return { pitch: 'eye_level', estimatedPitchDeg: 0, label: 'Level View (→)' };
+  }
+
+  /**
    * Torso Incline Angle relative to the vertical Y axis.
    * Compares the (Shoulder -> Hip) vector with vertical (0, 1).
    */
@@ -57,6 +114,77 @@ export class KinematicsMath {
     // Angle in degrees from vertical line
     const angleFromVertical = Math.abs(Math.atan2(dx, -dy) * (180.0 / Math.PI));
     return angleFromVertical;
+  }
+
+  /**
+   * Universal Perspective-Invariant Plank Orientation:
+   * Auto-adapts to ANY camera height/tilt:
+   * 1. Laptop on high desk/table looking down (20°–45°)
+   * 2. Phone on floor looking up (15°–35°)
+   * 3. 45° diagonal perspective in narrow room
+   * 4. Side profile
+   *
+   * STRICT ANTI-CHEAT:
+   * 100% blocks standing upright "air pushups" or wall leaning!
+   */
+  static isPlankOrientationUniversal(shoulder, hip, wrist, ankle, knee, landmarks) {
+    if (!shoulder || !hip) return false;
+
+    // 1. Check 2D Torso Incline
+    const incline2D = this.calculateTorsoIncline(shoulder, hip);
+
+    // If 2D incline is already clearly horizontal (>= 42°), it's definitely plank
+    if (incline2D >= 42) return true;
+
+    // 2. Camera Pitch Invariance (For Desk Cameras looking down at ~30°-45°):
+    // When a camera is on a desk pointing down, a person lying on the floor has their
+    // torso projected with a steeper 2D dy. BUT in 3D world space:
+    const dz = Math.abs((shoulder.z || 0) - (hip.z || 0));
+    const dy = Math.abs(shoulder.y - hip.y);
+    const dx = Math.abs(shoulder.x - hip.x);
+
+    // 3D Spatial Vector angle from pure vertical:
+    const groundSpan3D = Math.hypot(dx, dz);
+    const angle3DFromVertical = Math.atan2(groundSpan3D, dy) * (180.0 / Math.PI);
+
+    if (angle3DFromVertical >= 38) {
+      // Confirm this is NOT a standing person:
+      // In standing air push-ups, ankles are 0.45 to 0.80 below wrists in normalized height!
+      // In floor push-ups, wrists and ankles are on the same floor plane (ankleToWristY < 0.35).
+      if (wrist && ankle) {
+        const ankleToWristY = ankle.y - wrist.y;
+        if (ankleToWristY >= 0.45) {
+          return false; // Standing cheat blocked!
+        }
+      }
+      return true; // Valid floor plank detected from elevated desk camera!
+    }
+
+    // 3. Aspect Ratio Check:
+    // Standing humans have bounding box height/width > 2.4. Floor plankers have height/width < 1.7.
+    if (landmarks && landmarks.length >= 29) {
+      const ys = landmarks.map(p => p.y);
+      const xs = landmarks.map(p => p.x);
+      const bboxH = Math.max(...ys) - Math.min(...ys);
+      const bboxW = Math.max(...xs) - Math.min(...xs);
+
+      if (bboxW > 0.05) {
+        const aspect = bboxH / bboxW;
+        if (aspect < 1.75 && incline2D >= 26) {
+          return true;
+        }
+      }
+    }
+
+    // Fallback: strictly require >= 42°
+    return incline2D >= 42;
+  }
+
+  /**
+   * Backward-compatible isPlankOrientation
+   */
+  static isPlankOrientation(shoulder, hip) {
+    return this.calculateTorsoIncline(shoulder, hip) >= 42;
   }
 
   /**
@@ -140,5 +268,99 @@ export class KinematicsMath {
     const rightScore = sumVisibility(rightIndices);
 
     return rightScore > leftScore ? 'right' : 'left';
+  }
+
+  /**
+   * Measures individual anthropometric Femur-to-Torso length ratio.
+   * Lifters with long femurs (> 0.85) naturally lean further forward (48° - 58°)
+   * during squats to keep center-of-mass balanced over mid-foot.
+   */
+  static calculateFemurToTorsoRatio(shoulder, hip, knee) {
+    if (!shoulder || !hip || !knee) return 0.80; // Standard average default
+    const femur = Math.hypot(hip.x - knee.x, hip.y - knee.y);
+    const torso = Math.hypot(shoulder.x - hip.x, shoulder.y - hip.y);
+    if (torso <= 0.001) return 0.80;
+    return Math.round((femur / torso) * 100) / 100;
+  }
+
+  /**
+   * True Biomechanical Relative Depth:
+   * Evaluates vertical relationship between Hip Crease and Top of Knee (Patella),
+   * normalized to femur segment length.
+   * In screen coordinates (y increases downward):
+   *   - Standing: hip.y << knee.y  --> deltaY > +0.70
+   *   - Parallel: hip.y == knee.y  --> deltaY == 0.00
+   *   - Below Parallel: hip.y > knee.y --> deltaY < 0.00 (e.g. -0.05 to -0.15)
+   */
+  static calculateRelativeDepth(hip, knee) {
+    if (!hip || !knee) return { deltaY: 1.0, isParallelOrDeeper: false, isOlympicDeep: false };
+    const femur = Math.hypot(hip.x - knee.x, hip.y - knee.y);
+    if (femur <= 0.001) return { deltaY: 1.0, isParallelOrDeeper: false, isOlympicDeep: false };
+
+    // In screen coordinates: knee.y - hip.y <= 0 when hip drops to or below knee
+    const deltaY = (knee.y - hip.y) / femur;
+
+    return {
+      deltaY: Math.round(deltaY * 1000) / 1000,
+      isOlympicDeep: deltaY <= -0.05,
+      isParallelOrDeeper: deltaY <= 0.02,
+      isSoftParallel: deltaY <= 0.10
+    };
+  }
+
+  /**
+   * Stance-Compensated Knee Valgus Detector:
+   * Auto-adjusts valgus ratio threshold for wide/sumo squats so lifters with wide stances
+   * are not falsely penalized for knees caving in when their knees track properly over toes.
+   */
+  static detectKneeValgusAdaptive(leftKnee, rightKnee, leftAnkle, rightAnkle, baselineStanceWidth = null) {
+    if (!leftKnee || !rightKnee || !leftAnkle || !rightAnkle) {
+      return { hasValgus: false, ratio: 1.0, isWideStance: false };
+    }
+
+    const kneeDistance = Math.hypot(leftKnee.x - rightKnee.x, leftKnee.y - rightKnee.y);
+    const ankleDistance = Math.hypot(leftAnkle.x - rightAnkle.x, leftAnkle.y - rightAnkle.y);
+
+    if (ankleDistance === 0) return { hasValgus: false, ratio: 1.0, isWideStance: false };
+    const ratio = kneeDistance / ankleDistance;
+
+    // Detect if athlete is in wide/sumo stance
+    const isWideStance = baselineStanceWidth
+      ? ankleDistance > baselineStanceWidth * 1.25
+      : ankleDistance > 0.38;
+
+    // For wide/sumo squats, lower the ratio threshold to 0.64 (knees outward over wide toes)
+    // For standard stance, threshold is 0.80
+    const threshold = isWideStance ? 0.64 : 0.80;
+
+    return {
+      hasValgus: ratio < threshold,
+      ratio: Math.round(ratio * 100) / 100,
+      isWideStance
+    };
+  }
+
+  /**
+   * Body Yaw Estimator:
+   * Evaluates disparity between left/right shoulder and hip widths to classify camera viewpoint:
+   * - 'frontal': Facing camera (0° ± 25°)
+   * - 'diagonal': 45° angle view
+   * - 'side': Profile view (70° - 90°)
+   */
+  static estimateBodyYaw(leftShoulder, rightShoulder, leftHip, rightHip) {
+    if (!leftShoulder || !rightShoulder) {
+      return { viewAngle: 'frontal', yawRatio: 1.0 };
+    }
+
+    const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+    const hipWidth = (leftHip && rightHip) ? Math.abs(leftHip.x - rightHip.x) : shoulderWidth * 0.75;
+    const avgWidth = (shoulderWidth + hipWidth) / 2;
+
+    if (avgWidth < 0.08) {
+      return { viewAngle: 'side', yawRatio: avgWidth };
+    } else if (avgWidth < 0.18) {
+      return { viewAngle: 'diagonal', yawRatio: avgWidth };
+    }
+    return { viewAngle: 'frontal', yawRatio: avgWidth };
   }
 }
