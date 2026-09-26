@@ -11,7 +11,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
     letter-spacing: -0.02em;
   }
@@ -48,9 +53,11 @@
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: #F4F1EA;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #D4CEC3;
   border-radius: 3px;
@@ -62,6 +69,7 @@
     opacity: 0;
     transform: translateY(12px) scale(0.995);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -79,14 +87,17 @@
     opacity: 0;
     transform: scale(0.3) rotate(0deg);
   }
+
   25% {
     opacity: 1;
     transform: scale(1.15) rotate(180deg);
   }
+
   75% {
     opacity: 1;
     transform: scale(1) rotate(360deg);
   }
+
   100% {
     opacity: 0;
     transform: scale(0.7) rotate(360deg);
@@ -102,14 +113,17 @@
     opacity: 0;
     backdrop-filter: blur(0px);
   }
+
   20% {
     opacity: 1;
     backdrop-filter: blur(8px);
   }
+
   80% {
     opacity: 1;
     backdrop-filter: blur(8px);
   }
+
   100% {
     opacity: 0;
     backdrop-filter: blur(0px);

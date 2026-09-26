@@ -78,6 +78,9 @@ export default function WorkoutAnalyticsModal({
     return i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
   }, '');
 
+  const xpEarned = Math.round(((durationSeconds * 2) + (totalReps * 10)) * (accuracy / 100));
+  const tokensEarned = Math.floor(xpEarned * 0.1);
+
   return (
     <div className="fixed inset-0 z-50 bg-[#02050c]/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fade-in select-none">
       <div className="relative w-full max-w-3xl bg-[#060b18] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]">
@@ -109,6 +112,17 @@ export default function WorkoutAnalyticsModal({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Automated XP & RepTokens Auto-Synced Banner */}
+        <div className="bg-[#1E222A]/90 border-b border-amber-500/30 px-6 py-2.5 flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2 text-[#EAB308] font-bold">
+            <Zap className="w-4 h-4 fill-[#EAB308]" />
+            <span>+{xpEarned} XP & +{tokensEarned} RepTokens Auto-Claimed to Profile</span>
+          </div>
+          <span className="text-[10px] text-emerald-400 font-sans font-bold flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" /> MediaPipe Camera Verified
+          </span>
         </div>
 
         {/* Tab Switcher */}

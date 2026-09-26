@@ -1,41 +1,42 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { 
-  Flame, 
-  CheckCircle2, 
-  Volume2, 
-  VolumeX, 
-  Activity, 
-  Zap, 
-  RotateCw, 
-  Sparkles, 
-  ChevronDown, 
-  ChevronUp, 
-  ShieldCheck, 
-  ShieldAlert, 
-  Target, 
-  Lock, 
-  Play, 
-  Pause, 
-  Timer, 
-  Clock, 
-  Award, 
-  BarChart3, 
-  Bell, 
-  X, 
-  Dumbbell, 
-  Check, 
-  Layers, 
-  Droplet, 
-  User, 
-  Sliders 
+import {
+  Flame,
+  CheckCircle2,
+  Volume2,
+  VolumeX,
+  Activity,
+  Zap,
+  RotateCw,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  ShieldCheck,
+  ShieldAlert,
+  Target,
+  Lock,
+  Play,
+  Pause,
+  Timer,
+  Clock,
+  Award,
+  BarChart3,
+  Bell,
+  X,
+  Dumbbell,
+  Check,
+  Layers,
+  Droplet,
+  User,
+  Sliders
 } from 'lucide-react';
 import PoseCanvas from './camera/PoseCanvas';
 import { RestPauseOverlay, WorkoutAnalyticsModal } from './workout';
-import { useWebSpeech } from '../hooks';
+import { useWebSpeech, useAuth } from '../hooks';
 import { audioAlerts } from '../utils';
 import { EXERCISE_CONFIGS } from '../ai';
 
 export default function AICoachPage() {
+  const { addXP, profile, updateProfile } = useAuth();
   const [exercise, setExercise] = useState('pushup'); // 'pushup' | 'squat' | 'jumpingjack'
   const [repCount, setRepCount] = useState(0);
   const [targetReps, setTargetReps] = useState(25);
@@ -57,7 +58,7 @@ export default function AICoachPage() {
       const next = { ...prev, [id]: !prev[id] };
       try {
         localStorage.setItem('truerep_notified_exercises', JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
@@ -186,6 +187,74 @@ export default function AICoachPage() {
     return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   }, [telemetry.repHistory, telemetry.formScore]);
 
+  const [hasClaimedCurrentSessionXP, setHasClaimedCurrentSessionXP] = useState(false);
+
+  // Sync Active AI Telemetry to localStorage for Profile Import
+  useEffect(() => {
+    if (repCount > 0) {
+      const activeData = {
+        exercise: exercise === 'pushup' ? 'Push-Ups' : exercise === 'squat' ? 'Parallel Squats' : 'Jumping Jacks',
+        reps: repCount,
+        tut: elapsedSeconds,
+        formScore: (averageSessionScore / 100) || 0.98,
+        intensity: 1.0,
+        timestamp: Date.now()
+      };
+      try {
+        localStorage.setItem('truerep_active_ai_telemetry', JSON.stringify(activeData));
+        window.dispatchEvent(new Event('truerep_ai_telemetry_updated'));
+      } catch { }
+    }
+  }, [repCount, elapsedSeconds, exercise, averageSessionScore]);
+
+  // Automated XP Granting & Workout History Logging when session finishes
+  const autoClaimSessionXP = useCallback(async () => {
+    if (repCount === 0 || hasClaimedCurrentSessionXP) return;
+    setHasClaimedCurrentSessionXP(true);
+
+    const exerciseName = exercise === 'pushup' ? 'Push-Ups' : exercise === 'squat' ? 'Parallel Squats' : 'Jumping Jacks';
+    const formScore = (averageSessionScore / 100) || 0.98;
+    const intensity = 1.0;
+    const xpEarned = Math.round(((elapsedSeconds * 2) + (repCount * 10)) * formScore * intensity);
+    const tokensEarned = Math.floor(xpEarned * 0.1);
+
+    if (addXP) {
+      const res = await addXP(elapsedSeconds, repCount, formScore, intensity);
+      if (!res && updateProfile && profile) {
+        const newTotalXP = (profile.total_xp || 3420) + xpEarned;
+        const newTokens = (profile.rep_tokens || 1840) + tokensEarned;
+        const newLevel = Math.floor(newTotalXP / 250) + 1;
+        await updateProfile({
+          total_xp: newTotalXP,
+          rep_tokens: newTokens,
+          current_level: newLevel
+        });
+      }
+    }
+
+    const sessionEntry = {
+      id: Date.now(),
+      type: 'exercise',
+      name: `AI Coach: ${exerciseName}`,
+      detail: `${repCount} Reps • ${elapsedSeconds}s TUT • ${Math.round(formScore * 100)}% Form • +${xpEarned} XP`,
+      iconName: 'Dumbbell',
+      isAIVerified: true,
+      timestamp: Date.now()
+    };
+
+    try {
+      const existingHistory = JSON.parse(localStorage.getItem('truerep_workout_history') || '[]');
+      localStorage.setItem('truerep_workout_history', JSON.stringify([sessionEntry, ...existingHistory]));
+      window.dispatchEvent(new Event('truerep_session_logged'));
+    } catch { }
+  }, [repCount, elapsedSeconds, exercise, averageSessionScore, hasClaimedCurrentSessionXP, addXP, updateProfile, profile]);
+
+  useEffect(() => {
+    if (isAnalyticsOpen) {
+      autoClaimSessionXP();
+    }
+  }, [isAnalyticsOpen, autoClaimSessionXP]);
+
   const toggleVoice = () => {
     setVoiceEnabled((prev) => {
       const next = !prev;
@@ -221,6 +290,7 @@ export default function AICoachPage() {
     setElapsedSeconds(0);
     setSprintTimeLeft(60);
     setIsSessionActive(false);
+    setHasClaimedCurrentSessionXP(false);
     setTargetReps(newExercise === 'jumpingjack' ? 40 : newExercise === 'squat' ? 25 : 20);
     setTelemetry((prev) => ({
       ...prev,
@@ -243,7 +313,11 @@ export default function AICoachPage() {
     setIsRestPauseOpen(false);
     setIsAnalyticsOpen(false);
     setMaxComboStreak(0);
+    setHasClaimedCurrentSessionXP(false);
     repHistoryRef.current = [];
+    try {
+      localStorage.removeItem('truerep_active_ai_telemetry');
+    } catch { }
     setTelemetry((prev) => ({
       ...prev,
       reps: 0,
@@ -285,7 +359,7 @@ export default function AICoachPage() {
       value = item.form;
       maxVal = 100;
     }
-    return `${Math.min(100, Math.max(18, Math.round((value / maxVal) * 100))) }%`;
+    return `${Math.min(100, Math.max(18, Math.round((value / maxVal) * 100)))}%`;
   };
 
   const activeChartItem = baseWeeklyData[selectedChartDayIndex];
@@ -296,7 +370,7 @@ export default function AICoachPage() {
 
         {/* ── LEFT SLIM FLOATING CAPSULE SIDEBAR ── */}
         <div className="w-full md:w-auto md:min-w-[64px] bg-white border border-[#E2E8F0] rounded-full p-2.5 flex md:flex-col items-center justify-between md:justify-start gap-4 shadow-sm z-30">
-          
+
           {/* Logo Badge */}
           <div className="w-10 h-10 rounded-full bg-[#1E222A] text-white flex items-center justify-center font-extrabold shadow-sm flex-shrink-0">
             <Dumbbell className="w-5 h-5 fill-current" />
@@ -309,11 +383,10 @@ export default function AICoachPage() {
             <button
               onClick={toggleVoice}
               title={voiceEnabled ? 'Mute Voice Referee' : 'Enable Voice Referee'}
-              className={`p-2.5 rounded-full border transition-all ${
-                voiceEnabled
+              className={`p-2.5 rounded-full border transition-all ${voiceEnabled
                   ? 'bg-[#1E222A] border-[#1E222A] text-white shadow-sm'
                   : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-slate-800'
-              }`}
+                }`}
             >
               {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
@@ -329,11 +402,10 @@ export default function AICoachPage() {
             <button
               onClick={() => setShowDeepTelemetry((prev) => !prev)}
               title="Technical Biomechanics Inspector"
-              className={`p-2.5 rounded-full transition-all ${
-                showDeepTelemetry
+              className={`p-2.5 rounded-full transition-all ${showDeepTelemetry
                   ? 'bg-[#EAB308] border-[#EAB308] text-[#18181B] shadow-sm'
                   : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-black'
-              }`}
+                }`}
             >
               <Sliders className="w-4 h-4" />
             </button>
@@ -352,18 +424,17 @@ export default function AICoachPage() {
 
           {/* ── LEFT COLUMN: EXERCISE SELECTOR, HERO CAMERA & HUD (lg:col-span-7) ── */}
           <div className="lg:col-span-7 w-full space-y-4">
-            
+
             {/* 1. EXERCISE SELECTOR BAR (ACTIVE MODELS + COMING SOON MODELS) */}
             <div className="w-full bg-white border border-[#E2E8F0] p-1.5 rounded-2xl sm:rounded-full shadow-sm flex flex-wrap items-center justify-between gap-1.5">
               <div className="flex flex-wrap items-center gap-1.5 w-full">
                 {/* Active Exercises */}
                 <button
                   onClick={() => handleSelectExercise('pushup')}
-                  className={`flex-1 py-2 px-3 rounded-xl sm:rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 ${
-                    exercise === 'pushup'
+                  className={`flex-1 py-2 px-3 rounded-xl sm:rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 ${exercise === 'pushup'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black bg-slate-50 hover:bg-slate-100 border border-slate-200'
-                  }`}
+                    }`}
                 >
                   <Activity className="w-3.5 h-3.5" />
                   <span>Push-Ups</span>
@@ -371,11 +442,10 @@ export default function AICoachPage() {
 
                 <button
                   onClick={() => handleSelectExercise('squat')}
-                  className={`flex-1 py-2 px-3 rounded-xl sm:rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 ${
-                    exercise === 'squat'
+                  className={`flex-1 py-2 px-3 rounded-xl sm:rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 ${exercise === 'squat'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black bg-slate-50 hover:bg-slate-100 border border-slate-200'
-                  }`}
+                    }`}
                 >
                   <Zap className="w-3.5 h-3.5" />
                   <span>Squats</span>
@@ -383,11 +453,10 @@ export default function AICoachPage() {
 
                 <button
                   onClick={() => handleSelectExercise('jumpingjack')}
-                  className={`flex-1 py-2 px-3 rounded-xl sm:rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 ${
-                    exercise === 'jumpingjack'
+                  className={`flex-1 py-2 px-3 rounded-xl sm:rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-1.5 ${exercise === 'jumpingjack'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black bg-slate-50 hover:bg-slate-100 border border-slate-200'
-                  }`}
+                    }`}
                 >
                   <Flame className="w-3.5 h-3.5" />
                   <span>Jumping Jacks</span>
@@ -431,7 +500,7 @@ export default function AICoachPage() {
 
             {/* 2. SOLO CHALLENGE ENGINE & TIMER BAR */}
             <div className="w-full bg-white border border-[#E2E8F0] rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm text-left">
-              
+
               {/* Workout Mode Tabs */}
               <div className="flex items-center gap-1 bg-[#F8F6F0] p-1 rounded-xl border border-[#E2E8F0]">
                 <button
@@ -439,11 +508,10 @@ export default function AICoachPage() {
                     setWorkoutMode('target');
                     setSprintTimeLeft(60);
                   }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    workoutMode === 'target'
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${workoutMode === 'target'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black'
-                  }`}
+                    }`}
                 >
                   <Target className="w-3.5 h-3.5" />
                   <span>Target ({targetReps})</span>
@@ -454,11 +522,10 @@ export default function AICoachPage() {
                     setWorkoutMode('sprint');
                     setSprintTimeLeft(60);
                   }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    workoutMode === 'sprint'
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${workoutMode === 'sprint'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black'
-                  }`}
+                    }`}
                 >
                   <Timer className="w-3.5 h-3.5 text-[#EAB308]" />
                   <span>60s Sprint</span>
@@ -469,11 +536,10 @@ export default function AICoachPage() {
                     setWorkoutMode('strict');
                     setSprintTimeLeft(60);
                   }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    workoutMode === 'strict'
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${workoutMode === 'strict'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black'
-                  }`}
+                    }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                   <span>Strict Form</span>
@@ -497,11 +563,10 @@ export default function AICoachPage() {
 
                 <button
                   onClick={toggleSession}
-                  className={`px-3 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                    isSessionActive
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 ${isSessionActive
                       ? 'bg-amber-100 border border-amber-300 text-amber-900 hover:bg-amber-200'
                       : 'bg-[#1E222A] text-white hover:bg-black shadow-sm'
-                  }`}
+                    }`}
                 >
                   {isSessionActive ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
                   <span>{isSessionActive ? 'Pause' : 'Start'}</span>
@@ -523,15 +588,14 @@ export default function AICoachPage() {
             <div className="w-full bg-white border border-[#E2E8F0] rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-sm text-xs">
               {/* Form Quality Badge */}
               <div className="flex items-center gap-2">
-                <div className={`px-3 py-1 rounded-xl border flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${
-                  telemetry.readinessState === 'COUNTDOWN'
+                <div className={`px-3 py-1 rounded-xl border flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${telemetry.readinessState === 'COUNTDOWN'
                     ? 'bg-cyan-50 border-cyan-300 text-cyan-800 animate-pulse'
                     : telemetry.readinessState === 'READY'
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                    : telemetry.isFormValid
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                    : 'bg-rose-50 border-rose-300 text-rose-800'
-                }`}>
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                      : telemetry.isFormValid
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                        : 'bg-rose-50 border-rose-300 text-rose-800'
+                  }`}>
                   {telemetry.isFormValid ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   ) : (
@@ -541,10 +605,10 @@ export default function AICoachPage() {
                     {telemetry.readinessState === 'COUNTDOWN'
                       ? `Starting ${telemetry.countdownValue || 'GO!'}`
                       : telemetry.readinessState === 'READY'
-                      ? 'Ready • Lock Posture'
-                      : telemetry.isFormValid
-                      ? `${averageSessionScore}% Form Score`
-                      : (telemetry.formErrorReason || 'Form Fault')}
+                        ? 'Ready • Lock Posture'
+                        : telemetry.isFormValid
+                          ? `${averageSessionScore}% Form Score`
+                          : (telemetry.formErrorReason || 'Form Fault')}
                   </span>
                 </div>
 
@@ -584,13 +648,12 @@ export default function AICoachPage() {
 
             {/* 4. BIG HERO CAMERA CARD */}
             <div className="w-full bg-[#1E222A] border border-[#1E222A] rounded-3xl overflow-hidden shadow-md relative text-left">
-              
+
               {/* Pose Canvas Camera Viewport */}
-              <div className={`w-full relative transition-all duration-300 ${
-                isExpanded
+              <div className={`w-full relative transition-all duration-300 ${isExpanded
                   ? 'h-[80vh] min-h-[620px]'
                   : 'aspect-[4/3] sm:aspect-[16/10] max-h-[660px] min-h-[500px] sm:min-h-[580px]'
-              }`}>
+                }`}>
                 <PoseCanvas
                   exercise={exercise}
                   isExpanded={isExpanded}
@@ -643,7 +706,7 @@ export default function AICoachPage() {
 
             {/* UNIFIED CARD: ATLAS AI POSTURE COACH & METRICS */}
             <div className="w-full bg-white border border-[#E2E8F0] rounded-3xl p-5 sm:p-6 shadow-sm space-y-5 text-left">
-              
+
               {/* 1. ATLAS AI POSTURE COACH VOICE HEADER */}
               <div className="bg-[#1E222A] text-white border border-[#1E222A] rounded-2xl p-4 space-y-2 shadow-sm">
                 <div className="flex items-center justify-between">
@@ -686,7 +749,7 @@ export default function AICoachPage() {
 
               {/* 2. THREE KEY METRICS (REP GOAL, CLEAN POSTURE, DURATION) */}
               <div className="space-y-3">
-                
+
                 {/* Metric 1: Rep Goal */}
                 <div className="bg-[#F8F6F0] p-3.5 rounded-2xl border border-[#E2E8F0] flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -764,27 +827,24 @@ export default function AICoachPage() {
                   <div className="flex items-center gap-1 bg-[#F8F6F0] p-1 rounded-full border border-[#E2E8F0]">
                     <button
                       onClick={() => setChartMetric('volume')}
-                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${
-                        chartMetric === 'volume' ? 'bg-[#1E222A] text-white shadow-sm' : 'text-slate-500 hover:text-black'
-                      }`}
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${chartMetric === 'volume' ? 'bg-[#1E222A] text-white shadow-sm' : 'text-slate-500 hover:text-black'
+                        }`}
                       title="Rep Volume"
                     >
                       Vol
                     </button>
                     <button
                       onClick={() => setChartMetric('tut')}
-                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${
-                        chartMetric === 'tut' ? 'bg-[#1E222A] text-white shadow-sm' : 'text-slate-500 hover:text-black'
-                      }`}
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${chartMetric === 'tut' ? 'bg-[#1E222A] text-white shadow-sm' : 'text-slate-500 hover:text-black'
+                        }`}
                       title="Time Under Tension"
                     >
                       TUT
                     </button>
                     <button
                       onClick={() => setChartMetric('form')}
-                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${
-                        chartMetric === 'form' ? 'bg-[#1E222A] text-white shadow-sm' : 'text-slate-500 hover:text-black'
-                      }`}
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${chartMetric === 'form' ? 'bg-[#1E222A] text-white shadow-sm' : 'text-slate-500 hover:text-black'
+                        }`}
                       title="Form Accuracy"
                     >
                       Form
@@ -798,25 +858,23 @@ export default function AICoachPage() {
                     const isSelected = selectedChartDayIndex === idx;
                     const barH = getBarHeight(item);
                     return (
-                      <button 
-                        key={idx} 
+                      <button
+                        key={idx}
                         onClick={() => setSelectedChartDayIndex(idx)}
                         className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer focus:outline-none"
                         title={`${item.day}: ${item.volume} reps (${item.tut}s TUT, ${item.form}% form)`}
                       >
                         <div className="w-full bg-slate-100 rounded-full overflow-hidden flex items-end h-full">
                           <div
-                            className={`w-full rounded-full transition-all duration-500 ${
-                              isSelected
+                            className={`w-full rounded-full transition-all duration-500 ${isSelected
                                 ? 'bg-[#EAB308]'
                                 : 'bg-[#1E222A] group-hover:bg-slate-700'
-                            }`}
+                              }`}
                             style={{ height: barH }}
                           />
                         </div>
-                        <span className={`text-[9px] font-mono font-bold transition-colors ${
-                          isSelected ? 'text-[#18181B] underline' : 'text-slate-400 group-hover:text-slate-700'
-                        }`}>
+                        <span className={`text-[9px] font-mono font-bold transition-colors ${isSelected ? 'text-[#18181B] underline' : 'text-slate-400 group-hover:text-slate-700'
+                          }`}>
                           {item.day}
                         </span>
                       </button>
@@ -827,7 +885,7 @@ export default function AICoachPage() {
 
               {/* WIDGET 2: DUAL METRIC SPLIT CARD */}
               <div className="bg-white border border-[#E2E8F0] rounded-3xl p-4 shadow-sm grid grid-cols-2 gap-3 h-[210px]">
-                
+
                 {/* Left Split Half: Activity Speed */}
                 <div className="bg-[#F8F6F0] rounded-2xl p-3 flex flex-col justify-between border border-[#E2E8F0] text-left">
                   <div className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center">
@@ -864,7 +922,7 @@ export default function AICoachPage() {
                 <div className="text-xs font-bold text-[#18181B] uppercase tracking-wider flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-[#EAB308]" /> Technical Inspector: Biomechanics & Anti-Cheat Vectors
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                   <div className="space-y-2">
                     <div className="text-[10px] font-bold text-slate-500 uppercase">3D Kinematics</div>
@@ -997,11 +1055,10 @@ export default function AICoachPage() {
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                 <button
                   onClick={() => comingSoonExercise?.id && handleToggleNotify(comingSoonExercise.id)}
-                  className={`w-full sm:flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg ${
-                    comingSoonExercise?.id && notifiedList[comingSoonExercise.id]
+                  className={`w-full sm:flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg ${comingSoonExercise?.id && notifiedList[comingSoonExercise.id]
                       ? 'bg-emerald-900/80 border border-emerald-500 text-emerald-200'
                       : 'bg-[#EAB308] hover:bg-yellow-400 text-[#18181B]'
-                  }`}
+                    }`}
                 >
                   {comingSoonExercise?.id && notifiedList[comingSoonExercise.id] ? (
                     <>

@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  Dumbbell, 
-  TrendingUp, 
-  Users, 
-  Instagram, 
-  Youtube, 
+import {
+  Dumbbell,
+  TrendingUp,
+  Users,
+  Instagram,
+  Youtube,
   Play,
   ShieldCheck,
   Trophy,
@@ -25,14 +25,14 @@ export default function Hero({ onNavigate }) {
 
   return (
     <div className="w-full bg-[#F4F1EA] text-[#18181B] flex flex-col items-center select-none overflow-x-hidden">
-      
+
       {/* ========================================================================= */}
       {/* SECTION 1: TOP HERO HEADER (Matching Be.run Reference Layout) */}
       {/* ========================================================================= */}
       <section className="relative w-full min-h-[calc(100vh-80px)] px-6 lg:px-12 flex flex-col lg:flex-row items-center justify-between overflow-hidden pb-8 pt-4 font-premis">
         {/* LEFT COLUMN: Main Brand Message */}
         <div className="w-full lg:w-1/3 z-20 flex flex-col justify-center items-start text-left py-6 lg:py-4">
-          
+
           {/* Top Slogan */}
           <div className="space-y-1 mb-4">
             <h2 className="text-sm sm:text-base font-bold text-slate-500 tracking-wider uppercase font-premis">
@@ -75,7 +75,7 @@ export default function Hero({ onNavigate }) {
             </a>
             <a href="#twitter" aria-label="X Twitter" className="w-10 h-10 rounded-full bg-white border border-[#E2E8F0] flex items-center justify-center text-[#18181B] hover:bg-[#1E222A] hover:text-white transition-all shadow-sm">
               <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </a>
           </div>
@@ -132,7 +132,7 @@ export default function Hero({ onNavigate }) {
               <div className="w-16 h-[2.5px] bg-[#EAB308] mt-1.5 rounded-full" />
             </div>
 
-            <button 
+            <button
               onClick={() => onNavigate && onNavigate('aicoach')}
               aria-label="Start workout"
               className="w-11 h-11 rounded-full bg-white text-[#18181B] flex items-center justify-center hover:bg-[#EAB308] transition-all group"
@@ -148,7 +148,7 @@ export default function Hero({ onNavigate }) {
       {/* ========================================================================= */}
       <section className="w-full max-w-7xl px-4 sm:px-8 my-12">
         <div className="w-full bg-white border border-[#E2E8F0] text-[#18181B] rounded-[2.5rem] p-8 sm:p-12 lg:p-16 relative overflow-hidden shadow-sm">
-          
+
           <div className="text-center text-xs font-bold tracking-widest text-[#64748B] uppercase mb-6">
             Platform Concept & Biomechanics
           </div>
@@ -166,10 +166,10 @@ export default function Hero({ onNavigate }) {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mt-14 max-w-6xl mx-auto">
             <div className="lg:col-span-5 flex justify-center">
               <div className="relative w-full max-w-md aspect-[3/4] rounded-3xl overflow-hidden shadow-sm border border-[#E2E8F0] bg-[#1E222A] group">
-                <img 
-                  src={athleteImg} 
-                  alt="TRUE REP Athlete" 
-                  className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105" 
+                <img
+                  src={athleteImg}
+                  alt="TRUE REP Athlete"
+                  className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1E222A] via-transparent to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6 text-left text-white">
@@ -246,7 +246,7 @@ export default function Hero({ onNavigate }) {
 
         {/* Interactive Scanner Card */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm">
-          
+
           {/* Left Dark Charcoal HUD Viewport */}
           <div className="lg:col-span-6 relative aspect-square sm:aspect-[4/3] bg-[#1E222A] rounded-2xl flex items-center justify-center overflow-hidden">
             {/* Grid Lines */}
@@ -265,7 +265,7 @@ export default function Hero({ onNavigate }) {
               <polyline points="70,120 65,155 60,190" stroke="#EAB308" strokeWidth="2.5" strokeLinecap="round" />
               <polyline points="130,120 135,155 140,190" stroke="#EAB308" strokeWidth="2.5" strokeLinecap="round" />
               {[
-                [55, 70], [145, 70], [30, 95], [170, 95], 
+                [55, 70], [145, 70], [30, 95], [170, 95],
                 [65, 115], [135, 115], [70, 120], [130, 120],
                 [65, 155], [135, 155], [60, 190], [140, 190]
               ].map(([cx, cy], i) => (
@@ -327,7 +327,7 @@ export default function Hero({ onNavigate }) {
 
         {/* Comparison Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          
+
           {/* Card: Traditional Apps */}
           <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 space-y-6 text-left shadow-sm">
             <div className="flex items-center gap-3">
@@ -459,7 +459,7 @@ export default function Hero({ onNavigate }) {
               </div>
             </div>
 
-            <button 
+            <button
               onClick={() => onNavigate && onNavigate('aicoach')}
               className="w-full py-3 rounded-full bg-[#1E222A] hover:bg-black text-white text-xs font-semibold transition-all text-center shadow-sm"
             >
@@ -472,3 +472,4 @@ export default function Hero({ onNavigate }) {
     </div>
   );
 }
+

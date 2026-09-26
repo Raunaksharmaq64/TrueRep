@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Trophy, 
-  UserCheck, 
-  Lock, 
-  Copy, 
-  Share2, 
-  Heart, 
-  Activity, 
-  Wind, 
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  Trophy,
+  UserCheck,
+  Lock,
+  Copy,
+  Share2,
+  Heart,
+  Activity,
+  Wind,
   Bike,
   ShieldCheck,
   Zap,
@@ -36,29 +36,39 @@ import {
 } from 'lucide-react';
 import opponentImg from '../assets/athlete.jpg';
 import fitnessPlateImg from '../assets/fitness_plate.jpg';
+import samuraiPfp from '../assets/samurai_pfp.png';
 import PoseCanvas from './camera/PoseCanvas';
-import { useWebSpeech, useNearbyDevices } from '../hooks';
-import { audioAlerts } from '../utils';
+import LevelUpModal from './reward/LevelUpModal';
+import { useWebSpeech, useNearbyDevices, useAuth } from '../hooks';
+import { audioAlerts, matchmakeLobby, calculateThreeScores, calculateCompositeMatchScore } from '../utils';
 
-// Roster of available competitive rivals for matchmaking
+// Roster of available competitive rivals for matchmaking with 3-Tier Scores (AFS, MMR, RR)
 const RIVAL_ROSTER = [
   {
     id: 'elena',
     name: 'Elena Vance',
-    elo: 2480,
+    mmr_rating: 1080,
+    afs_score: 108.00,
+    rr_rating: 80,
+    rank_tier: 'Bronze II',
+    elo: 1080,
     winRate: '68%',
     streak: 4,
     bpm: 168,
     wattage: 395,
     ping: '14ms',
     distance: '45m away',
-    status: 'Locked Rival',
+    status: 'Matched Rival',
     avatar: opponentImg
   },
   {
     id: 'marcus',
     name: 'Marcus Vance',
-    elo: 2510,
+    mmr_rating: 1150,
+    afs_score: 115.00,
+    rr_rating: 50,
+    rank_tier: 'Silver I',
+    elo: 1150,
     winRate: '74%',
     streak: 6,
     bpm: 172,
@@ -71,7 +81,11 @@ const RIVAL_ROSTER = [
   {
     id: 'chloe',
     name: 'Chloé Laurent',
-    elo: 2495,
+    mmr_rating: 1040,
+    afs_score: 104.00,
+    rr_rating: 40,
+    rank_tier: 'Bronze I',
+    elo: 1040,
     winRate: '71%',
     streak: 2,
     bpm: 162,
@@ -84,7 +98,11 @@ const RIVAL_ROSTER = [
   {
     id: 'alex',
     name: 'Alex Rivers',
-    elo: 2530,
+    mmr_rating: 1220,
+    afs_score: 122.00,
+    rr_rating: 20,
+    rank_tier: 'Silver II',
+    elo: 1220,
     winRate: '80%',
     streak: 8,
     bpm: 175,
@@ -92,6 +110,23 @@ const RIVAL_ROSTER = [
     ping: '11ms',
     distance: '85m away',
     status: 'Elite Challenger',
+    avatar: opponentImg
+  },
+  {
+    id: 'viktor',
+    name: 'Viktor Krum',
+    mmr_rating: 980,
+    afs_score: 98.00,
+    rr_rating: 80,
+    rank_tier: 'Iron I',
+    elo: 980,
+    winRate: '58%',
+    streak: 1,
+    bpm: 155,
+    wattage: 340,
+    ping: '18ms',
+    distance: '320m away',
+    status: 'Novice Rival',
     avatar: opponentImg
   }
 ];
@@ -107,16 +142,16 @@ const formatLatency = (ms) => {
 
 const latencyQualityClass = (quality) => ({
   excellent: 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40',
-  good:      'text-cyan-400    border-cyan-500/40    bg-cyan-950/40',
-  fair:      'text-amber-400   border-amber-500/40   bg-amber-950/40',
-  poor:      'text-rose-400    border-rose-500/40    bg-rose-950/40',
+  good: 'text-cyan-400    border-cyan-500/40    bg-cyan-950/40',
+  fair: 'text-amber-400   border-amber-500/40   bg-amber-950/40',
+  poor: 'text-rose-400    border-rose-500/40    bg-rose-950/40',
 }[quality] || 'text-slate-400 border-slate-700 bg-slate-900/40');
 
 const latencyDot = (quality) => ({
   excellent: 'bg-emerald-400',
-  good:      'bg-cyan-400',
-  fair:      'bg-amber-400',
-  poor:      'bg-rose-500',
+  good: 'bg-cyan-400',
+  fair: 'bg-amber-400',
+  poor: 'bg-rose-500',
 }[quality] || 'bg-slate-500');
 
 function DuelsPage({ onNavigate }) {
@@ -210,7 +245,7 @@ function DuelsPage({ onNavigate }) {
     if (duelStage === 'lobby') {
       reconnectAfterBout();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duelStage]);
 
 
@@ -250,7 +285,7 @@ function DuelsPage({ onNavigate }) {
         avatar: opponentImg
       });
       setMatchMode('nearby');
-      
+
       // Only transition to match_locked if currently in lobby or matchmaking
       setDuelStage((prevStage) => {
         if (prevStage === 'lobby' || prevStage === 'matchmaking') {
@@ -448,21 +483,51 @@ function DuelsPage({ onNavigate }) {
     }
   }, [duelStage, playerReps, opponentReps, voiceEnabled, speak]);
 
+  const { profile, processDuelResult } = useAuth();
+  const [rewardData, setRewardData] = useState(null);
+
+  // Compute 3 competitive scores for logged-in user
+  const userThreeScores = useMemo(() => {
+    return calculateThreeScores(profile || {});
+  }, [profile]);
+
+  useEffect(() => {
+    if (duelStage === 'match_summary' && processDuelResult) {
+      const isWin = playerReps >= opponentReps;
+      const reward = processDuelResult({
+        isWin,
+        userReps: playerReps,
+        opponentReps,
+        tutSeconds: 60,
+        avgFormScore: 0.92
+      });
+      if (reward?.didLevelUp || reward?.didRankUp) {
+        setRewardData({
+          type: reward.didRankUp ? 'RANK_UP' : 'LEVEL_UP',
+          ...reward
+        });
+      }
+    }
+  }, [duelStage]);
+
   const handleStartQueue = useCallback(() => {
     setQueueTimer(3.0);
     setDuelStage('matchmaking');
 
     if (matchMode === 'bot') {
-      let botInfo = { name: 'Spartan_AI (Bot)', elo: 2450, winRate: '72%', streak: 5, bpm: 160, wattage: 410, status: 'AI Ghost Simulation' };
-      if (botDifficulty === 'rookie') { botInfo = { name: 'Rookie_AI (Bot)', elo: 2100, winRate: '54%', streak: 1, bpm: 145, wattage: 320, status: 'Novice Simulation' }; }
-      if (botDifficulty === 'titan') { botInfo = { name: 'Titan_AI (Bot)', elo: 2700, winRate: '88%', streak: 12, bpm: 178, wattage: 460, status: 'Master Simulation' }; }
-      setOpponent(botInfo);
+      let botInfo = { name: 'Spartan_AI (Bot)', mmr_rating: 1250, afs_score: 125.00, rr_rating: 50, rank_tier: 'Silver II', elo: 1250, winRate: '72%', streak: 5, bpm: 160, wattage: 410, status: 'AI Ghost Simulation' };
+      if (botDifficulty === 'rookie') { botInfo = { name: 'Rookie_AI (Bot)', mmr_rating: 950, afs_score: 95.00, rr_rating: 50, rank_tier: 'Iron I', elo: 950, winRate: '54%', streak: 1, bpm: 145, wattage: 320, status: 'Novice Simulation' }; }
+      if (botDifficulty === 'titan') { botInfo = { name: 'Titan_AI (Bot)', mmr_rating: 1850, afs_score: 185.00, rr_rating: 50, rank_tier: 'Diamond I', elo: 1850, winRate: '88%', streak: 12, bpm: 178, wattage: 460, status: 'Master Simulation' }; }
+      const cms = calculateCompositeMatchScore(userThreeScores, botInfo);
+      setOpponent({ ...botInfo, cms });
     } else {
-      const randomRival = RIVAL_ROSTER[Math.floor(Math.random() * RIVAL_ROSTER.length)];
-      setSelectedRivalId(randomRival.id);
-      setOpponent(randomRival);
+      // 3-Tier Lobby Matchmaking: Find closest rival in MMR & AFS range by CMS
+      const { bestMatch } = matchmakeLobby(userThreeScores, RIVAL_ROSTER, 350);
+      const matched = bestMatch || RIVAL_ROSTER[0];
+      setSelectedRivalId(matched.id);
+      setOpponent(matched);
     }
-  }, [matchMode, botDifficulty]);
+  }, [matchMode, botDifficulty, userThreeScores]);
 
   const handleLockMatch = useCallback(() => {
     setDuelStage('match_locked');
@@ -544,19 +609,18 @@ function DuelsPage({ onNavigate }) {
         {/* ========================================================= */}
         {(duelStage === 'lobby' || duelStage === 'matchmaking' || duelStage === 'match_locked') && (
           <div className="w-full relative rounded-[2.5rem] bg-white border border-[#E2E8F0] shadow-sm overflow-hidden p-4 sm:p-8 min-h-[600px] sm:min-h-[660px] flex flex-col justify-between">
-            
+
             {/* ── TOP CONTROL CAPSULE BAR ── */}
             <div className="w-full flex flex-col xs:flex-row items-center justify-between gap-3 z-30 mb-6">
-              
+
               {/* Center Capsule Pill Toggle */}
               <div className="bg-[#F8F6F0] border border-[#E2E8F0] p-1.5 rounded-full flex items-center gap-1 shadow-sm">
                 <button
                   onClick={() => { setActiveLobbyTab('quick'); setMatchMode('quick'); }}
-                  className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-2 ${
-                    activeLobbyTab === 'quick'
+                  className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-2 ${activeLobbyTab === 'quick'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black'
-                  }`}
+                    }`}
                 >
                   <Zap className="w-3.5 h-3.5 text-[#EAB308]" />
                   <span>Quick Battles</span>
@@ -564,11 +628,10 @@ function DuelsPage({ onNavigate }) {
 
                 <button
                   onClick={() => { setActiveLobbyTab('nearby'); setMatchMode('nearby'); }}
-                  className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-2 ${
-                    activeLobbyTab === 'nearby'
+                  className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-2 ${activeLobbyTab === 'nearby'
                       ? 'bg-[#1E222A] text-white shadow-sm'
                       : 'text-slate-600 hover:text-black'
-                  }`}
+                    }`}
                 >
                   <Radio className="w-3.5 h-3.5 text-[#EAB308]" />
                   <span>Nearby Nodes ({nearbyDevices.length})</span>
@@ -586,11 +649,13 @@ function DuelsPage({ onNavigate }) {
                     <span>Home</span>
                   </button>
                 )}
-                <div className="rounded-full bg-white border border-[#E2E8F0] px-4 py-2 text-xs font-semibold text-[#18181B] flex items-center gap-2 shadow-sm">
-                  <div className="w-2 h-2 rounded-full bg-[#EAB308]" />
-                  <span>{myDevice?.name || 'Athlete Node'}</span>
+                <div className="rounded-full bg-white border border-[#E2E8F0] px-3.5 py-1.5 text-xs font-semibold text-[#18181B] flex items-center gap-2 shadow-sm">
+                  <div className="w-6 h-6 rounded-full overflow-hidden border border-[#1E222A] flex-shrink-0">
+                    <img src={profile?.avatar_url || samuraiPfp} alt="User PFP" className="w-full h-full object-cover" />
+                  </div>
+                  <span className="font-bold text-[#18181B] truncate max-w-[130px]">{profile?.display_name || profile?.username || 'Abhay Sharma'}</span>
                   <span className="text-slate-300">|</span>
-                  <span className="text-[#18181B] font-bold">{roomCode}</span>
+                  <span className="text-[#18181B] font-bold font-mono">{roomCode}</span>
                 </div>
               </div>
 
@@ -601,26 +666,48 @@ function DuelsPage({ onNavigate }) {
 
               {/* LEFT FLOATING BENTO MATCH CARD (lg:col-span-5) */}
               <div className="lg:col-span-5 w-full bg-[#F8F6F0] border border-[#E2E8F0] p-5 sm:p-6 rounded-3xl shadow-sm space-y-4 text-left z-20 transition-all">
-                
+
                 {activeLobbyTab === 'quick' ? (
                   <>
-                    {/* Organizer / Opponent Host Profile */}
+                    {/* Organizer / Opponent Host Profile with 3-Tier Scores */}
                     <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#1E222A] flex-shrink-0 shadow-sm">
                           <img src={opponent.avatar || opponentImg} alt={opponent.name} className="w-full h-full object-cover" />
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-[#18181B]">{opponent.name}</div>
-                          <div className="text-[10px] text-slate-500 font-mono">organizer • {opponent.elo} ELO</div>
+                          <div className="text-xs font-bold text-[#18181B] flex items-center gap-1.5">
+                            <span>{opponent.name}</span>
+                            <span className="bg-[#1E222A] text-[#EAB308] text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">{opponent.rank_tier || 'Bronze I'}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            MMR {opponent.mmr_rating || opponent.elo || 1080} • AFS {opponent.afs_score || 108.0}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Overlapping rival avatar stack (+3 pill) */}
-                      <div className="flex -space-x-2 overflow-hidden">
-                        <div className="w-7 h-7 rounded-full bg-[#1E222A] text-white text-[9px] font-bold flex items-center justify-center">EV</div>
-                        <div className="w-7 h-7 rounded-full bg-[#1E222A] text-white text-[9px] font-bold flex items-center justify-center">MT</div>
-                        <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center">+3</div>
+                      {/* Composite Match Score (CMS) Parity Badge */}
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 px-2.5 py-1 rounded-xl text-right">
+                        <div className="text-[9px] font-mono font-bold uppercase">CMS Fit</div>
+                        <div className="text-xs font-bold font-mono text-emerald-600">
+                          {calculateCompositeMatchScore(userThreeScores, opponent)}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* My 3-Tier Scores Summary Bar */}
+                    <div className="bg-white border border-[#E2E8F0] p-2.5 rounded-2xl grid grid-cols-3 gap-1 text-center shadow-xs">
+                      <div className="border-r border-slate-100 pr-1">
+                        <div className="text-[9px] font-mono text-slate-400 font-bold">MY AFS</div>
+                        <div className="text-xs font-bold text-[#18181B] font-mono">{userThreeScores.afs_score}</div>
+                      </div>
+                      <div className="border-r border-slate-100 pr-1">
+                        <div className="text-[9px] font-mono text-slate-400 font-bold">MY MMR</div>
+                        <div className="text-xs font-bold text-[#18181B] font-mono">{userThreeScores.mmr_rating}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-mono text-slate-400 font-bold">TIER</div>
+                        <div className="text-xs font-bold text-amber-600 truncate">{userThreeScores.rank_tier}</div>
                       </div>
                     </div>
 
@@ -643,11 +730,10 @@ function DuelsPage({ onNavigate }) {
                           <button
                             key={key}
                             onClick={() => setExercise(key)}
-                            className={`py-2 rounded-2xl text-xs font-semibold transition-all ${
-                              exercise === key
+                            className={`py-2 rounded-2xl text-xs font-semibold transition-all ${exercise === key
                                 ? 'bg-[#1E222A] text-white shadow-sm'
                                 : 'bg-white text-slate-700 border border-[#E2E8F0] hover:text-black'
-                            }`}
+                              }`}
                           >
                             {label}
                           </button>
@@ -705,7 +791,7 @@ function DuelsPage({ onNavigate }) {
                             <Radio className="w-3.5 h-3.5 text-[#18181B]" />
                             Check on map
                           </button>
-                          
+
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               onClick={handleStartQueue}
@@ -724,7 +810,7 @@ function DuelsPage({ onNavigate }) {
                           </div>
                         </div>
                       )}
-                      
+
                       <div className="text-[10px] text-slate-500 font-medium text-center flex items-center justify-center gap-1">
                         <Check className="w-3 h-3 text-emerald-600" />
                         <span>Free event • Verified AI Edge Referee</span>
@@ -806,7 +892,7 @@ function DuelsPage({ onNavigate }) {
 
               {/* RIGHT MAIN HERO SECTION */}
               <div className="lg:col-span-7 flex flex-col items-start text-left space-y-4 z-10 py-6 lg:py-12 pl-0 lg:pl-8">
-                
+
                 {/* Category Label */}
                 <div className="text-xs font-bold text-[#64748B] uppercase tracking-widest font-mono">
                   JOIN GAME
@@ -853,7 +939,7 @@ function DuelsPage({ onNavigate }) {
 
             {/* TOP AUTHORITATIVE SCORE BAR */}
             <div className="w-full bg-white border border-[#E2E8F0] rounded-3xl p-3.5 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm text-[#18181B]">
-              
+
               {/* Player Score & Exit */}
               <div className="flex items-center justify-between md:justify-start gap-3 sm:gap-4 w-full md:w-auto border-b md:border-b-0 border-[#E2E8F0] pb-3 md:pb-0">
                 <div className="flex items-center gap-3">
@@ -866,11 +952,13 @@ function DuelsPage({ onNavigate }) {
                     <span className="hidden xs:inline">Exit</span>
                   </button>
 
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#1E222A] text-white flex flex-col items-center justify-center shadow-sm flex-shrink-0">
-                    <span className="text-[10px] sm:text-xs font-bold">YOU</span>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#1E222A] shadow-sm flex-shrink-0">
+                    <img src={profile?.avatar_url || samuraiPfp} alt="Your PFP" className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <div className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">YOUR REPS</div>
+                    <div className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[130px]">
+                      {(profile?.display_name || profile?.username || 'YOU').toUpperCase()}
+                    </div>
                     <div className="text-2xl sm:text-4xl font-extrabold font-mono text-[#18181B] tracking-tight leading-none mt-0.5">
                       {playerReps}
                     </div>
@@ -899,18 +987,17 @@ function DuelsPage({ onNavigate }) {
                 </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center">
-                  <div className={`px-3 sm:px-4 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider shadow-sm ${
-                    isPlayerAhead 
+                  <div className={`px-3 sm:px-4 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider shadow-sm ${isPlayerAhead
                       ? 'bg-emerald-600 text-white'
                       : isOpponentAhead
-                      ? 'bg-rose-600 text-white'
-                      : 'bg-[#1E222A] text-white'
-                  }`}>
-                    {isPlayerAhead 
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-[#1E222A] text-white'
+                    }`}>
+                    {isPlayerAhead
                       ? `🔥 +${repDelta} AHEAD`
                       : isOpponentAhead
-                      ? `⚠️ -${Math.abs(repDelta)} BEHIND`
-                      : '⚔️ TIED'}
+                        ? `⚠️ -${Math.abs(repDelta)} BEHIND`
+                        : '⚔️ TIED'}
                   </div>
                 </div>
               </div>
@@ -938,9 +1025,11 @@ function DuelsPage({ onNavigate }) {
               <div className="bg-white border border-[#E2E8F0] rounded-3xl p-4 flex flex-col space-y-3 shadow-sm relative">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#EAB308]" />
+                    <div className="w-5 h-5 rounded-full overflow-hidden border border-[#1E222A] flex-shrink-0">
+                      <img src={profile?.avatar_url || samuraiPfp} alt="PFP" className="w-full h-full object-cover" />
+                    </div>
                     <span className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
-                      YOUR ARENA • AI POSE REFEREE
+                      {(profile?.display_name || profile?.username || 'YOUR').toUpperCase()}'S ARENA • AI REFEREE
                     </span>
                   </div>
 
@@ -983,11 +1072,10 @@ function DuelsPage({ onNavigate }) {
                     <button
                       onClick={() => setCameraStreamEnabled(prev => !prev)}
                       title={cameraStreamEnabled ? 'Stop watching opponent live' : 'Watch opponent live'}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                        cameraStreamEnabled
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${cameraStreamEnabled
                           ? 'bg-[#1E222A] text-white border-[#1E222A]'
                           : 'bg-white border-[#E2E8F0] text-slate-700 hover:text-black'
-                      }`}
+                        }`}
                     >
                       {cameraStreamEnabled ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
                       <span className="hidden sm:inline">{cameraStreamEnabled ? 'Live Feed ON' : 'Watch Live'}</span>
@@ -1005,18 +1093,16 @@ function DuelsPage({ onNavigate }) {
                     autoPlay
                     playsInline
                     muted
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-                      cameraStreamEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                    }`}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${cameraStreamEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                      }`}
                   />
 
                   {/* Static backdrop */}
-                  <img 
-                    src={opponent.avatar || opponentImg} 
-                    alt={opponent.name} 
-                    className={`absolute inset-0 w-full h-full object-cover grayscale transition-opacity duration-500 ${
-                      cameraStreamEnabled ? 'opacity-0' : 'opacity-30 group-hover:scale-105'
-                    } transition-transform duration-500`} 
+                  <img
+                    src={opponent.avatar || opponentImg}
+                    alt={opponent.name}
+                    className={`absolute inset-0 w-full h-full object-cover grayscale transition-opacity duration-500 ${cameraStreamEnabled ? 'opacity-0' : 'opacity-30 group-hover:scale-105'
+                      } transition-transform duration-500`}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#1E222A] via-transparent to-transparent" />
 
@@ -1076,7 +1162,7 @@ function DuelsPage({ onNavigate }) {
           <div className="relative w-full max-w-3xl mx-auto py-4">
 
             <div className="w-full bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-9 space-y-6 shadow-sm text-center relative overflow-hidden text-[#18181B]">
-              
+
               <div className="relative z-10 space-y-3">
                 {playerReps > opponentReps && (
                   <div className="space-y-3">
@@ -1108,7 +1194,9 @@ function DuelsPage({ onNavigate }) {
 
               <div className="grid grid-cols-2 gap-4 bg-[#F8F6F0] border border-[#E2E8F0] p-5 rounded-2xl relative z-10">
                 <div className="text-center border-r border-[#E2E8F0] pr-2">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">YOUR REPS</div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
+                    {(profile?.display_name || profile?.username || 'YOUR').toUpperCase()}'S REPS
+                  </div>
                   <div className="text-5xl font-bold text-[#18181B] font-mono mt-1">{playerReps}</div>
                   {playerReps > opponentReps && (
                     <div className="text-[10px] font-bold text-emerald-600 mt-1">+{playerReps - opponentReps} AHEAD 🔥</div>
@@ -1191,6 +1279,8 @@ function DuelsPage({ onNavigate }) {
           </div>
         )}
 
+        {/* Level Up & Rank Up Reward Celebration Overlay Modal */}
+        <LevelUpModal rewardData={rewardData} onClose={() => setRewardData(null)} />
       </div>
     </div>
   );
