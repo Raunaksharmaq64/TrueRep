@@ -374,15 +374,15 @@ export default function AICoachPage() {
           <div className="lg:col-span-7 w-full flex flex-col justify-start items-start gap-4">
 
             {/* Inner Fiery Red Gradient Camera Card */}
-            <div className="w-full bg-gradient-to-b from-black via-[#700000] via-60% to-[#FF3B00] rounded-[44px] sm:rounded-[64px] lg:rounded-[80px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 p-6 sm:p-8 space-y-6 relative overflow-hidden text-left">
+            <div className="w-full bg-gradient-to-b from-black via-[#700000] via-60% to-[#FF3B00] rounded-[32px] sm:rounded-[64px] lg:rounded-[80px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 p-4 sm:p-8 space-y-4 sm:space-y-6 relative overflow-hidden text-left">
 
               {/* Subtitle & Voice Controls Row */}
-              <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex flex-col justify-start items-start gap-1 max-w-md">
                   <div className="text-yellow-500 text-xs font-normal font-['Arial_MT_Pro'] uppercase leading-4">
                     {telemetry.state === 'IDLE' ? 'STEP INTO FRAME AND START CAMERA' : 'POSTURE CALIBRATION & TRACKING ACTIVE'}
                   </div>
-                  <div className="text-white text-sm sm:text-base font-normal font-['Arial_MT_Pro'] leading-5">
+                  <div className="text-white text-xs sm:text-base font-normal font-['Arial_MT_Pro'] leading-5">
                     BlazePose 3D with Irreversible Error Latching & Bilateral Anti-Cheat
                   </div>
                 </div>
@@ -394,12 +394,12 @@ export default function AICoachPage() {
                       speak("TrueRep Voice Coach active! Systems operational.", true);
                     }}
                     title="Test Sound & Voice"
-                    className="w-10 h-10 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-all flex items-center justify-center text-zinc-900 shadow-[0px_8px_20px_0px_rgba(0,0,0,0.30)] cursor-pointer active:scale-95 shrink-0"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-yellow-500 hover:bg-yellow-400 transition-all flex items-center justify-center text-zinc-900 shadow-[0px_8px_20px_0px_rgba(0,0,0,0.30)] cursor-pointer active:scale-95 shrink-0"
                   >
-                    <Volume2 className="w-4.5 h-4.5" />
+                    <Volume2 className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                   </button>
 
-                  <div className="px-4 py-2 bg-black/50 backdrop-blur-md rounded-full outline outline-1 outline-offset-[-1px] outline-white/10 flex items-center gap-2 text-xs text-white font-['Arial_MT_Pro']">
+                  <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-black/50 backdrop-blur-md rounded-full outline outline-1 outline-offset-[-1px] outline-white/10 flex items-center gap-2 text-[11px] sm:text-xs text-white font-['Arial_MT_Pro']">
                     <div className={`w-2.5 h-2.5 rounded-full ${voiceEnabled ? 'bg-yellow-500 animate-pulse' : 'bg-slate-500'}`} />
                     <span>Web Audio API • {voiceEnabled ? 'Active' : 'Muted'}</span>
                   </div>
@@ -407,13 +407,13 @@ export default function AICoachPage() {
               </div>
 
               {/* Viewport Box (PoseCanvas Camera Feed & Reticles + Laser HUD) */}
-              <div className="w-full relative min-h-[380px] sm:min-h-[460px] lg:min-h-[500px] rounded-[36px] sm:rounded-[56px] overflow-hidden flex flex-col justify-center items-center bg-black border border-white/10 shadow-2xl">
+              <div className="w-full relative min-h-[320px] sm:min-h-[460px] lg:min-h-[500px] rounded-[24px] sm:rounded-[56px] overflow-hidden flex flex-col justify-center items-center bg-black border border-white/10 shadow-2xl">
 
                 {/* Reticle Corner Markers (Yellow L-Brackets) */}
-                <div className="absolute top-6 left-6 w-6 h-6 border-t-2 border-l-2 border-yellow-500 pointer-events-none z-20" />
-                <div className="absolute top-6 right-6 w-6 h-6 border-t-2 border-r-2 border-yellow-500 pointer-events-none z-20" />
-                <div className="absolute bottom-6 left-6 w-6 h-6 border-b-2 border-l-2 border-yellow-500 pointer-events-none z-20" />
-                <div className="absolute bottom-6 right-6 w-6 h-6 border-b-2 border-r-2 border-yellow-500 pointer-events-none z-20" />
+                <div className="absolute top-4 left-4 sm:top-6 sm:left-6 w-5 h-5 sm:w-6 sm:h-6 border-t-2 border-l-2 border-yellow-500 pointer-events-none z-20" />
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 w-5 h-5 sm:w-6 sm:h-6 border-t-2 border-r-2 border-yellow-500 pointer-events-none z-20" />
+                <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 w-5 h-5 sm:w-6 sm:h-6 border-b-2 border-l-2 border-yellow-500 pointer-events-none z-20" />
+                <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 w-5 h-5 sm:w-6 sm:h-6 border-b-2 border-r-2 border-yellow-500 pointer-events-none z-20" />
 
                 {/* Real PoseCanvas Vision Pipeline Component */}
                 <PoseCanvas
@@ -427,11 +427,11 @@ export default function AICoachPage() {
                 />
 
                 {/* HUD Bottom Left Label Overlay */}
-                <div className="absolute bottom-8 left-8 z-20 flex flex-col justify-start items-start pointer-events-none">
-                  <div className="text-yellow-500 text-xs font-normal font-['Arial_MT_Pro'] uppercase leading-4">
+                <div className="absolute bottom-4 left-4 sm:bottom-8 sm:left-8 z-20 flex flex-col justify-start items-start pointer-events-none">
+                  <div className="text-yellow-500 text-[10px] sm:text-xs font-normal font-['Arial_MT_Pro'] uppercase leading-4">
                     CAMERA PREVIEW
                   </div>
-                  <div className="text-white text-sm font-normal font-['Arial_MT_Pro'] leading-4">
+                  <div className="text-white text-xs sm:text-sm font-normal font-['Arial_MT_Pro'] leading-4">
                     {telemetry.postureGuidance || 'Center yourself in the frame'}
                   </div>
                 </div>
@@ -447,16 +447,16 @@ export default function AICoachPage() {
               </div>
 
               {/* Bottom Controls Bar */}
-              <div className="w-full flex items-center justify-between gap-4 pt-1">
-                <div className="px-5 py-2.5 bg-white/20 backdrop-blur-md rounded-full outline outline-1 outline-white/20 inline-flex items-center gap-2">
-                  <div className="text-white text-xs font-normal font-['Arial_MT_Pro'] leading-4">
+              <div className="w-full flex items-center justify-between gap-2 sm:gap-4 pt-1">
+                <div className="px-3 sm:px-5 py-2 sm:py-2.5 bg-white/20 backdrop-blur-md rounded-full outline outline-1 outline-white/20 inline-flex items-center gap-2">
+                  <div className="text-white text-[11px] sm:text-xs font-normal font-['Arial_MT_Pro'] leading-4">
                     {exercise === 'pushup' ? 'Push-Ups' : exercise === 'squat' ? 'Squats' : 'Jumping Jacks'}
                   </div>
                 </div>
 
                 <button
                   onClick={toggleSession}
-                  className="px-8 py-3.5 bg-white hover:bg-yellow-400 text-zinc-900 rounded-full shadow-[0px_10px_24px_0px_rgba(0,0,0,0.30)] transition-all inline-flex items-center justify-center gap-2 cursor-pointer font-['Arial_MT_Pro'] text-xs font-bold uppercase tracking-wider active:scale-95"
+                  className="px-5 sm:px-8 py-2.5 sm:py-3.5 bg-white hover:bg-yellow-400 text-zinc-900 rounded-full shadow-[0px_10px_24px_0px_rgba(0,0,0,0.30)] transition-all inline-flex items-center justify-center gap-2 cursor-pointer font-['Arial_MT_Pro'] text-[11px] sm:text-xs font-bold uppercase tracking-wider active:scale-95"
                 >
                   <span>{isSessionActive ? 'PAUSE AI CAMERA' : 'START AI CAMERA'}</span>
                 </button>
@@ -470,20 +470,20 @@ export default function AICoachPage() {
           <div className="lg:col-span-5 w-full flex flex-col justify-start items-start gap-6">
 
             {/* CARD 1: EXERCISE SELECTION */}
-            <div className="w-full bg-black rounded-[44px] sm:rounded-[60px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 p-5 sm:p-6 space-y-4 text-center">
+            <div className="w-full bg-black rounded-[32px] sm:rounded-[60px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 p-4 sm:p-6 space-y-4 text-center">
               <div className="w-full flex items-center justify-center gap-3">
                 <div className="text-yellow-500 text-xs sm:text-sm font-normal font-['Arial_MT_Pro'] uppercase leading-4 tracking-wider">
                   EXERCISE SELECTION
                 </div>
-                <div className="px-4 py-1.5 bg-black/60 border border-white/10 rounded-full text-white text-xs font-normal font-['Arial_MT_Pro']">
+                <div className="px-3 sm:px-4 py-1 sm:py-1.5 bg-black/60 border border-white/10 rounded-full text-white text-[11px] sm:text-xs font-normal font-['Arial_MT_Pro']">
                   {exercise === 'pushup' ? 'Push-Ups' : exercise === 'squat' ? 'Squats' : 'Jumping Jacks'}
                 </div>
               </div>
 
-              <div className="w-full grid grid-cols-3 gap-3">
+              <div className="w-full grid grid-cols-3 gap-1.5 sm:gap-3">
                 <button
                   onClick={() => handleSelectExercise('pushup')}
-                  className={`py-3 px-4 rounded-full text-xs sm:text-sm font-normal font-['Arial_MT_Pro'] transition-all flex items-center justify-center cursor-pointer ${exercise === 'pushup'
+                  className={`py-2.5 sm:py-3 px-1.5 sm:px-4 rounded-full text-[11px] sm:text-sm font-normal font-['Arial_MT_Pro'] transition-all flex items-center justify-center cursor-pointer ${exercise === 'pushup'
                     ? 'bg-yellow-500 text-zinc-900 shadow-[0px_8px_20px_0px_rgba(0,0,0,0.30)] font-bold'
                     : 'bg-black/80 text-slate-300 hover:text-white border border-white/10'
                     }`}
@@ -493,7 +493,7 @@ export default function AICoachPage() {
 
                 <button
                   onClick={() => handleSelectExercise('squat')}
-                  className={`py-3 px-4 rounded-full text-xs sm:text-sm font-normal font-['Arial_MT_Pro'] transition-all flex items-center justify-center cursor-pointer ${exercise === 'squat'
+                  className={`py-2.5 sm:py-3 px-1.5 sm:px-4 rounded-full text-[11px] sm:text-sm font-normal font-['Arial_MT_Pro'] transition-all flex items-center justify-center cursor-pointer ${exercise === 'squat'
                     ? 'bg-yellow-500 text-zinc-900 shadow-[0px_8px_20px_0px_rgba(0,0,0,0.30)] font-bold'
                     : 'bg-black/80 text-slate-300 hover:text-white border border-white/10'
                     }`}
@@ -503,12 +503,12 @@ export default function AICoachPage() {
 
                 <button
                   onClick={() => handleSelectExercise('jumpingjack')}
-                  className={`py-3 px-4 rounded-full text-xs sm:text-sm font-normal font-['Arial_MT_Pro'] transition-all flex items-center justify-center cursor-pointer ${exercise === 'jumpingjack'
+                  className={`py-2.5 sm:py-3 px-1.5 sm:px-4 rounded-full text-[11px] sm:text-sm font-normal font-['Arial_MT_Pro'] transition-all flex items-center justify-center cursor-pointer ${exercise === 'jumpingjack'
                     ? 'bg-yellow-500 text-zinc-900 shadow-[0px_8px_20px_0px_rgba(0,0,0,0.30)] font-bold'
                     : 'bg-black/80 text-slate-300 hover:text-white border border-white/10'
                     }`}
                 >
-                  Jumping Jacks
+                  Jacks
                 </button>
               </div>
             </div>

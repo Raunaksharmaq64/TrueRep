@@ -607,7 +607,7 @@ function DuelsPage({ onNavigate }) {
           <div className="w-full flex flex-col gap-6">
 
             {/* ── TOP HERO BENTO CONTAINER ── */}
-            <div className="w-full relative min-h-[720px] lg:min-h-[821px] bg-zinc-950/70 rounded-[40px] sm:rounded-[60px] lg:rounded-[120px] shadow-[0px_18px_40px_0px_rgba(0,0,0,0.40)] shadow-[0px_0px_28px_0px_rgba(234,179,8,0.10)] border border-stone-900 overflow-hidden p-6 sm:p-10 lg:p-14 flex flex-col justify-between">
+            <div className="w-full relative min-h-0 lg:min-h-[821px] bg-zinc-950/70 rounded-[28px] sm:rounded-[60px] lg:rounded-[120px] shadow-[0px_18px_40px_0px_rgba(0,0,0,0.40)] shadow-[0px_0px_28px_0px_rgba(234,179,8,0.10)] border border-stone-900 overflow-hidden p-4 sm:p-8 lg:p-14 flex flex-col justify-between">
               
               {/* Background Image Asset */}
               <img
@@ -625,53 +625,53 @@ function DuelsPage({ onNavigate }) {
               <div className="size-56 right-[100px] bottom-[50px] absolute opacity-5 bg-white rounded-full blur-[50px] pointer-events-none" />
 
               {/* HERO INNER SPLIT GRID */}
-              <div className="relative z-10 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center flex-1">
+              <div className="relative z-10 w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center flex-1">
 
                 {/* LEFT HERO TEXT & ACTION COLUMN (lg:col-span-7) */}
-                <div className="lg:col-span-7 flex flex-col justify-start items-start gap-5">
+                <div className="lg:col-span-7 flex flex-col justify-start items-start gap-4 sm:gap-5">
                   
                   {/* BADGES HEADER ROW */}
                   <div className="w-full flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="px-3 py-1.5 bg-yellow-500 rounded-full shadow-[0px_0px_12px_0px_rgba(234,179,8,0.40)] flex items-center justify-center">
-                        <span className="text-zinc-900 text-[10px] font-normal uppercase leading-4 font-mono">ELITE ATHLETE • 2,510 ELO</span>
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                      <div className="px-3 py-1.5 bg-yellow-500 rounded-full shadow-[0px_0px_12px_0px_rgba(234,179,8,0.40)] flex items-center">
+                        <span className="text-zinc-900 text-[9px] sm:text-[10px] font-normal uppercase leading-4 font-mono">ELITE ATHLETE • 2,510 ELO</span>
                       </div>
-                      <div className="px-3 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/5 flex items-center justify-center">
-                        <span className="text-yellow-400 text-[10px] font-normal uppercase leading-4 font-mono">RANK #1 CANNON DIVISION</span>
+                      <div className="px-3 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/5 flex items-center">
+                        <span className="text-yellow-400 text-[9px] sm:text-[10px] font-normal uppercase leading-4 font-mono">RANK #1 CANNON DIVISION</span>
                       </div>
                     </div>
-                    <div className="px-3.5 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/5 flex items-center justify-center">
-                      <span className="text-white text-xs font-normal leading-4 font-mono">TR-8842-CYBER</span>
+                    <div className="px-3.5 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/5 flex items-center">
+                      <span className="text-white text-[11px] sm:text-xs font-normal leading-4 font-mono">TR-8842-CYBER</span>
                     </div>
                   </div>
 
                   {/* GIANT BOLD HEADLINE */}
-                  <h1 className="self-stretch text-white text-5xl sm:text-6xl lg:text-7xl font-normal leading-[1.0] tracking-tight uppercase">
+                  <h1 className="self-stretch text-white text-3xl sm:text-5xl lg:text-7xl font-normal leading-[1.05] tracking-tight uppercase">
                     UNLOCK YOUR<br />POTENTIAL
                   </h1>
 
                   {/* SUBTITLE */}
-                  <p className="max-w-xl text-slate-300 text-base sm:text-lg font-normal leading-relaxed">
+                  <p className="max-w-xl text-slate-300 text-xs sm:text-base lg:text-lg font-normal leading-relaxed">
                     {(profile?.display_name || profile?.username || 'Alex Vance')} • Elite athlete • {profile?.elo || 2510} ELO • Immediate 1v1 duels with verified AI edge referees.
                   </p>
 
                   {/* ACTION BUTTONS */}
-                  <div className="inline-flex items-center gap-3 pt-1">
+                  <div className="flex flex-wrap items-center gap-3 pt-1 w-full sm:w-auto">
                     <button
                       onClick={handleStartQueue}
                       disabled={duelStage === 'matchmaking'}
-                      className="px-6 py-3.5 bg-gradient-to-br from-orange-500 via-yellow-400 via-55% to-white rounded-[20px] shadow-[0px_10px_24px_0px_rgba(255,128,0,0.20)] inline-flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                      className="px-5 sm:px-6 py-3 sm:py-3.5 bg-gradient-to-br from-orange-500 via-yellow-400 via-55% to-white rounded-[16px] sm:rounded-[20px] shadow-[0px_10px_24px_0px_rgba(255,128,0,0.20)] inline-flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all cursor-pointer flex-1 sm:flex-initial"
                     >
-                      <span className="text-zinc-900 text-base font-normal uppercase tracking-wider">
+                      <span className="text-zinc-900 text-sm sm:text-base font-normal uppercase tracking-wider">
                         {duelStage === 'matchmaking' ? `Queueing (${queueTimer.toFixed(1)}s)...` : 'Join Game'}
                       </span>
                     </button>
 
                     <button
                       onClick={() => setActiveLobbyTab(activeLobbyTab === 'nearby' ? 'quick' : 'nearby')}
-                      className="px-6 py-3.5 bg-white/5 hover:bg-white/10 rounded-[20px] outline outline-1 outline-offset-[-1px] outline-white/10 inline-flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)]"
+                      className="px-5 sm:px-6 py-3 sm:py-3.5 bg-white/5 hover:bg-white/10 rounded-[16px] sm:rounded-[20px] outline outline-1 outline-offset-[-1px] outline-white/10 inline-flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] flex-1 sm:flex-initial"
                     >
-                      <span className="text-white text-base font-normal uppercase tracking-wider">
+                      <span className="text-white text-sm sm:text-base font-normal uppercase tracking-wider">
                         {activeLobbyTab === 'nearby' ? 'Quick Battle' : 'Check on map'}
                       </span>
                     </button>

@@ -23,19 +23,19 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
 
   return (
     <>
-      <header className="w-full px-4 sm:px-6 lg:px-12 py-3.5 sm:py-5 relative z-50 rounded-full bg-[#050505]/80 backdrop-blur-[18px] border-b border-white/5 select-none">
+      <header className={`w-full px-4 sm:px-6 lg:px-12 py-3 sm:py-4 relative z-50 transition-all duration-300 bg-[#050505]/90 backdrop-blur-[18px] border-b border-white/10 select-none ${mobileMenuOpen ? 'rounded-3xl' : 'rounded-full'}`}>
         <div className="max-w-[1408px] mx-auto flex items-center justify-between">
           {/* Left: Brand Logo */}
           <div className="flex items-center gap-3 sm:gap-6">
             <button
               onClick={() => handleNavClick('home')}
-              className="group focus:outline-none flex items-center justify-center w-[73px] h-[58px]"
+              className="group focus:outline-none flex items-center justify-center w-[58px] sm:w-[73px] h-[48px] sm:h-[58px]"
               aria-label="Home"
             >
               <img
                 src={logoImg}
                 alt="TRUE REP Logo"
-                className="w-[54px] h-[42px] object-contain group-hover:scale-105 transition-transform duration-200 "
+                className="w-[46px] sm:w-[54px] h-[36px] sm:h-[42px] object-contain group-hover:scale-105 transition-transform duration-200"
               />
             </button>
           </div>
@@ -109,7 +109,7 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="w-[124px] h-[46px] bg-[#FF8000] hover:bg-[#FF9000] text-white text-[14px] font-bold tracking-[-1.2px] leading-[16px] rounded-full shadow-[0px_8px_18px_rgba(255,128,0,0.25)] drop-shadow-[0_0_1px_#FF8000] transition-all flex items-center justify-center cursor-pointer"
+                className="w-[100px] sm:w-[124px] h-[40px] sm:h-[46px] bg-[#FF8000] hover:bg-[#FF9000] text-white text-[13px] sm:text-[14px] font-bold tracking-[-1.2px] leading-[16px] rounded-full shadow-[0px_8px_18px_rgba(255,128,0,0.25)] drop-shadow-[0_0_1px_#FF8000] transition-all flex items-center justify-center cursor-pointer"
               >
                 <span>Sign in</span>
               </button>
@@ -119,7 +119,7 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
             <button
               onClick={() => setMobileMenuOpen(prev => !prev)}
               aria-label="Toggle Navigation Menu"
-              className="md:hidden p-2 rounded-full bg-white/[0.05] border border-white/10 text-white hover:bg-white/10 focus:outline-none"
+              className="md:hidden p-2 rounded-full bg-white/[0.05] border border-white/10 text-white hover:bg-white/10 focus:outline-none min-w-[40px] min-h-[40px] flex items-center justify-center"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -131,7 +131,7 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
           <nav className="md:hidden mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 animate-fadeIn">
             <button
               onClick={() => handleNavClick('home')}
-              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all ${
+              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all min-h-[44px] ${
                 activeTab === 'home' || activeTab === 'overview'
                   ? 'bg-[#FF8000] border-[#FF8000] text-black'
                   : 'bg-white/[0.04] border-white/10 text-white/80'
@@ -143,7 +143,7 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
 
             <button
               onClick={() => handleNavClick('aicoach')}
-              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all ${
+              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all min-h-[44px] ${
                 activeTab === 'aicoach'
                   ? 'bg-[#FF8000] border-[#FF8000] text-black'
                   : 'bg-white/[0.04] border-white/10 text-white/80'
@@ -155,7 +155,7 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
 
             <button
               onClick={() => handleNavClick('duels')}
-              className={`p-3 rounded-2xl border flex items-center justify-between text-xs font-semibold transition-all ${
+              className={`p-3 rounded-2xl border flex items-center justify-between text-xs font-semibold transition-all min-h-[44px] ${
                 activeTab === 'duels'
                   ? 'bg-[#FF8000] border-[#FF8000] text-black'
                   : 'bg-white/[0.04] border-white/10 text-white/80'
@@ -166,8 +166,20 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
                 <span>1v1 Duels</span>
               </div>
               <span className="bg-[#FFB800] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full font-mono">
-                1
+                {nearbyDevices.length > 0 ? nearbyDevices.length : 1}
               </span>
+            </button>
+
+            <button
+              onClick={() => handleNavClick('profile')}
+              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all min-h-[44px] ${
+                activeTab === 'profile'
+                  ? 'bg-[#FF8000] border-[#FF8000] text-black'
+                  : 'bg-white/[0.04] border-white/10 text-white/80'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>{user ? 'Athlete Profile' : 'Sign In'}</span>
             </button>
           </nav>
         )}

@@ -44,7 +44,7 @@ export default function Hero({ onNavigate }) {
         {/* SECTION 1: HERO CONTAINER */}
         {/* ========================================================================= */}
         <div className="w-full max-w-[1350px] mx-auto drop-shadow-[0_0_0px_#FF800080]">
-          <section className="relative w-[1350px] min-h-[780px] rounded-[120px] sm:rounded-[140px] lg:rounded-[160px] bg-[#0B0B0B] border border-white/10 p-8 sm:p-14 lg:p-20 overflow-hidden shadow-[0_24px_48px_rgba(0,0,0,0.5)] flex items-center">
+          <section className="relative w-full max-w-[1350px] min-h-0 sm:min-h-[640px] lg:min-h-[780px] rounded-[32px] sm:rounded-[80px] lg:rounded-[160px] bg-[#0B0B0B] border border-white/10 p-5 sm:p-10 lg:p-20 overflow-hidden shadow-[0_24px_48px_rgba(0,0,0,0.5)] flex items-center">
 
             {/* Athlete Hero Background Image */}
             <div className="absolute inset-0 z-0">
@@ -55,10 +55,10 @@ export default function Hero({ onNavigate }) {
               />
             </div>
 
-            <div className="relative z-10 w-full flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-14">
+            <div className="relative z-10 w-full flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-14">
 
               {/* LEFT COLUMN: HERO COPY & BRAND IDENTITY */}
-              <div className="w-full lg:w-[480px] flex flex-col items-start text-left space-y-6 shrink-0">
+              <div className="w-full lg:w-[480px] flex flex-col items-start text-left space-y-5 sm:space-y-6 shrink-0">
 
                 {/* Eyebrow */}
                 <div className="flex items-center gap-2">
@@ -70,16 +70,16 @@ export default function Hero({ onNavigate }) {
 
                 {/* Title Block */}
                 <div className="space-y-3 w-full">
-                  <div className="w-[480px] h-[88px] relative flex items-baseline leading-[88px] text-left">
-                    <span className="font-doto font-extralight text-[96px] tracking-[-2.9px] leading-[88px] text-white">
+                  <div className="w-full h-auto relative flex flex-wrap items-baseline gap-2 text-left">
+                    <span className="font-doto font-extralight text-5xl sm:text-7xl lg:text-[96px] tracking-[-2.9px] leading-none text-white">
                       TRUE
                     </span>
-                    <span className="font-inter italic font-semibold text-[93px] tracking-[-7px] leading-[88px] text-[#FF8000]">
+                    <span className="font-inter italic font-semibold text-5xl sm:text-7xl lg:text-[93px] tracking-[-7px] leading-none text-[#FF8000]">
                       REP
                     </span>
                   </div>
 
-                  <div className="space-y-1 font-sans text-[17px] tracking-[-1.5px] leading-[26px] text-white/80 uppercase font-medium">
+                  <div className="space-y-1 font-sans text-sm sm:text-[17px] tracking-[-1.5px] leading-snug sm:leading-[26px] text-white/80 uppercase font-medium">
                     <p>More than a workout.</p>
                     <p>A better you.</p>
                   </div>
@@ -194,7 +194,7 @@ export default function Hero({ onNavigate }) {
         {/* ========================================================================= */}
         {/* SECTION 2: PLATFORM CONCEPT & BIOMECHANICS */}
         {/* ========================================================================= */}
-        <section className="relative w-full rounded-[120px] bg-[linear-gradient(180deg,rgba(0,0,0,0.17)_0%,rgba(255,0,0,0.17)_27%,rgba(255,255,0,0.17)_67%,rgba(255,255,255,0.17)_100%)] p-8 sm:p-12 space-y-8 shadow-[0_0_24px_rgba(255,128,0,0.15)] text-left">
+        <section className="relative w-full rounded-[36px] sm:rounded-[80px] lg:rounded-[120px] bg-[linear-gradient(180deg,rgba(0,0,0,0.17)_0%,rgba(255,0,0,0.17)_27%,rgba(255,255,0,0.17)_67%,rgba(255,255,255,0.17)_100%)] p-5 sm:p-10 lg:p-12 space-y-6 sm:space-y-8 shadow-[0_0_24px_rgba(255,128,0,0.15)] text-left">
 
           {/* Header Block */}
           <div className="space-y-2">
@@ -202,12 +202,12 @@ export default function Hero({ onNavigate }) {
               PLATFORM CONCEPT & BIOMECHANICS
             </span>
 
-            <h2 className="self-stretch justify-start text-white text-6xl font-normal font-['Arial_MT_Pro'] leading-[56px]">
+            <h2 className="self-stretch justify-start text-white text-3xl sm:text-5xl lg:text-6xl font-normal font-['Arial_MT_Pro'] leading-tight">
               TRUE REP - WASM POSE REFEREE <br />
-              <span className="self-stretch justify-start text-white/70 text-6xl font-normal font-['Arial_MT_Pro'] leading-[56px]">& intelligent workout assistant</span>
+              <span className="self-stretch justify-start text-white/70 text-2xl sm:text-4xl lg:text-6xl font-normal font-['Arial_MT_Pro'] leading-tight">& intelligent workout assistant</span>
             </h2>
 
-            <p className="w-[1248px] justify-start text-white/60 text-base font-normal font-['Arial_MT_Pro'] leading-6">
+            <p className="w-full max-w-[1248px] justify-start text-white/60 text-xs sm:text-base font-normal font-['Arial_MT_Pro'] leading-relaxed">
               Every rep is a mathematically verified posture event calculated strictly on-device through joint angles and artificial intelligence.
             </p>
           </div>
@@ -501,20 +501,20 @@ export default function Hero({ onNavigate }) {
         {/* SECTION 5: STATS DEFINING THE TRUEREP STANDARD */}
         {/* ========================================================================= */}
         <section className="relative w-full max-w-[1350px] mx-auto">
-          <div className="w-full p-6 sm:p-8 bg-gradient-to-br from-zinc-950/90 via-zinc-950/80 to-zinc-950/95 rounded-[40px] lg:rounded-[52px] shadow-[0px_24px_48px_0px_rgba(0,0,0,0.50),0px_0px_24px_0px_rgba(255,128,0,0.15)] outline outline-1 outline-offset-[-1px] outline-white/10 flex flex-col justify-start items-start gap-6 text-left">
+          <div className="w-full p-5 sm:p-8 bg-gradient-to-br from-zinc-950/90 via-zinc-950/80 to-zinc-950/95 rounded-[36px] sm:rounded-[48px] lg:rounded-[52px] shadow-[0px_24px_48px_0px_rgba(0,0,0,0.50),0px_0px_24px_0px_rgba(255,128,0,0.15)] outline outline-1 outline-offset-[-1px] outline-white/10 flex flex-col justify-start items-start gap-6 text-left">
             
             {/* Top Header */}
-            <div className="w-full flex flex-col sm:flex-row justify-between items-center sm:items-end gap-4">
-              <div className="w-full sm:w-[620px] inline-flex flex-col justify-start items-center sm:items-start gap-2">
-                <div className="w-[px] inline-flex flex-col justify-start items-center gap-2">
-                  <div className="size- inline-flex justify-start items-center gap-2">
+            <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+              <div className="w-full sm:w-[620px] inline-flex flex-col justify-start items-start gap-2">
+                <div className="w-full inline-flex flex-col justify-start items-start gap-2">
+                  <div className="inline-flex justify-start items-center gap-2">
                     <div className="size-2.5 bg-orange-500 rounded-full"></div>
                     <div className="justify-start text-yellow-500 text-xs font-normal font-['Arial_MT_Pro'] uppercase leading-4">PERFORMANCE METRICS</div>
                   </div>
-                  <div className="self-stretch text-center justify-start">
-                    <span className="text-white text-5xl font-normal font-['Arial_MT_Pro'] uppercase leading-10">STATS DEFINING<br/>
+                  <div className="self-stretch text-left justify-start">
+                    <span className="text-white text-3xl sm:text-4xl lg:text-5xl font-normal font-['Arial_MT_Pro'] uppercase leading-tight">STATS DEFINING<br/>
                     </span>
-                    <span className="text-orange-500 text-5xl font-normal font-['Arial_MT_Pro'] uppercase leading-10">THE TRUEREP STANDARD
+                    <span className="text-orange-500 text-3xl sm:text-4xl lg:text-5xl font-normal font-['Arial_MT_Pro'] uppercase leading-tight">THE TRUEREP STANDARD
                     </span>
                   </div>
                 </div>

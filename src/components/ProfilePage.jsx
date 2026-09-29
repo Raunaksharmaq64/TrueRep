@@ -381,7 +381,7 @@ export default function ProfilePage() {
         {/* ========================================================================= */}
         {/* ZONE 1: TOP ATHLETE HERO & STATISTICAL BIOMETRICS BANNER                 */}
         {/* ========================================================================= */}
-        <div className="bg-neutral-900/90 rounded-[47px] p-6 sm:p-8 outline outline-1 outline-white/10 shadow-[0px_24px_48px_0px_rgba(0,0,0,0.50)] shadow-[0px_0px_24px_0px_rgba(255,128,0,0.15)] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] relative overflow-hidden flex flex-col xl:flex-row items-center justify-between gap-6">
+        <div className="bg-neutral-900/90 rounded-[28px] sm:rounded-[47px] p-4 sm:p-8 outline outline-1 outline-white/10 shadow-[0px_24px_48px_0px_rgba(0,0,0,0.50)] shadow-[0px_0px_24px_0px_rgba(255,128,0,0.15)] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] relative overflow-hidden flex flex-col xl:flex-row items-center justify-between gap-6">
           
           {/* APPLIED BACKGROUND BANNER IMAGE */}
           <img 
@@ -392,18 +392,18 @@ export default function ProfilePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/85 to-neutral-950/30 pointer-events-none z-0" />
 
           {/* Left Athlete Summary Info & Hero Header */}
-          <div className="flex-1 space-y-5 w-full relative z-10">
+          <div className="flex-1 space-y-4 sm:space-y-5 w-full relative z-10">
             
             {/* Header Badges Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="px-3.5 py-1.5 bg-yellow-500 rounded-full shadow-[0px_0px_12px_0px_rgba(234,179,8,0.40)] flex items-center">
-                  <span className="text-zinc-900 text-[10px] font-black font-mono uppercase tracking-wider">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="px-3 py-1 sm:px-3.5 sm:py-1.5 bg-yellow-500 rounded-full shadow-[0px_0px_12px_0px_rgba(234,179,8,0.40)] flex items-center">
+                  <span className="text-zinc-900 text-[9px] sm:text-[10px] font-black font-mono uppercase tracking-wider">
                     ELITE ATHLETE • {profile?.elo || 2510} ELO
                   </span>
                 </div>
-                <div className="px-3.5 py-1.5 bg-white/5 rounded-full outline outline-1 outline-white/10 flex items-center">
-                  <span className="text-yellow-400 text-[10px] font-bold font-mono uppercase tracking-wider">
+                <div className="px-3 py-1 sm:px-3.5 sm:py-1.5 bg-white/5 rounded-full outline outline-1 outline-white/10 flex items-center">
+                  <span className="text-yellow-400 text-[9px] sm:text-[10px] font-bold font-mono uppercase tracking-wider">
                     RANK #1 CANNON DIVISION
                   </span>
                 </div>
@@ -411,9 +411,9 @@ export default function ProfilePage() {
 
               <button 
                 onClick={handleCopyId}
-                className="px-3.5 py-2 bg-white/5 hover:bg-white/10 rounded-full outline outline-1 outline-white/10 flex items-center gap-1.5 transition cursor-pointer"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white/5 hover:bg-white/10 rounded-full outline outline-1 outline-white/10 flex items-center gap-1.5 transition cursor-pointer"
               >
-                <span className="text-white text-xs font-mono">{profile?.cyber_id || 'TR-8842-CYBER'}</span>
+                <span className="text-white text-[10px] sm:text-xs font-mono">{profile?.cyber_id || 'TR-8842-CYBER'}</span>
                 <Copy className="w-3 h-3 text-slate-400" />
                 {copiedId && <span className="text-[9px] text-emerald-400 font-bold">COPIED</span>}
               </button>
@@ -421,40 +421,40 @@ export default function ProfilePage() {
 
             {/* Main Headline */}
             <div className="space-y-1">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight uppercase font-heading tracking-tight">
+              <h1 className="text-2xl sm:text-4xl lg:text-6xl font-black text-white leading-tight uppercase font-heading tracking-tight">
                 UNLOCK YOUR POTENTIAL
               </h1>
-              <p className="text-slate-300 text-base sm:text-lg font-normal">
+              <p className="text-slate-300 text-xs sm:text-base lg:text-lg font-normal">
                 {profile?.display_name || 'Alex Vance'} • {profile?.title || 'Elite athlete'} • {profile?.elo || 2510} ELO
               </p>
             </div>
 
             {/* 3 Biometrics Stat Cards Container */}
-            <div className="shadow-[inset_5px_3px_65.9px_0px_rgba(255,255,255,0.25)] p-2 rounded-[50px] bg-neutral-900/60 border border-white/5 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="h-24 bg-neutral-900/90 rounded-[40px] outline outline-1 outline-white/5 flex flex-col items-center justify-center space-y-0.5 p-3 text-center">
-                <span className="text-slate-400 text-[10px] font-bold font-mono uppercase tracking-wider">STAMINA</span>
-                <span className="text-white text-3xl font-black font-mono">88%</span>
-                <span className="text-yellow-400 text-xs font-medium">Tier 4 • High Endurance</span>
+            <div className="shadow-[inset_5px_3px_65.9px_0px_rgba(255,255,255,0.25)] p-2 rounded-[28px] sm:rounded-[50px] bg-neutral-900/60 border border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+              <div className="h-20 sm:h-24 bg-neutral-900/90 rounded-[20px] sm:rounded-[40px] outline outline-1 outline-white/5 flex flex-col items-center justify-center space-y-0.5 p-2 sm:p-3 text-center">
+                <span className="text-slate-400 text-[9px] sm:text-[10px] font-bold font-mono uppercase tracking-wider">STAMINA</span>
+                <span className="text-white text-2xl sm:text-3xl font-black font-mono">88%</span>
+                <span className="text-yellow-400 text-[10px] sm:text-xs font-medium">Tier 4 • High Endurance</span>
               </div>
-              <div className="h-24 bg-neutral-900/90 rounded-[40px] outline outline-1 outline-white/5 flex flex-col items-center justify-center space-y-0.5 p-3 text-center">
-                <span className="text-slate-400 text-[10px] font-bold font-mono uppercase tracking-wider">STRENGTH</span>
-                <span className="text-white text-3xl font-black font-mono">92%</span>
-                <span className="text-yellow-400 text-xs font-medium">Tier 5 • 435W Power</span>
+              <div className="h-20 sm:h-24 bg-neutral-900/90 rounded-[20px] sm:rounded-[40px] outline outline-1 outline-white/5 flex flex-col items-center justify-center space-y-0.5 p-2 sm:p-3 text-center">
+                <span className="text-slate-400 text-[9px] sm:text-[10px] font-bold font-mono uppercase tracking-wider">STRENGTH</span>
+                <span className="text-white text-2xl sm:text-3xl font-black font-mono">92%</span>
+                <span className="text-yellow-400 text-[10px] sm:text-xs font-medium">Tier 5 • 435W Power</span>
               </div>
-              <div className="h-24 bg-neutral-900/90 rounded-[40px] outline outline-1 outline-white/5 flex flex-col items-center justify-center space-y-0.5 p-3 text-center">
-                <span className="text-slate-400 text-[10px] font-bold font-mono uppercase tracking-wider">AGILITY</span>
-                <span className="text-white text-3xl font-black font-mono">84%</span>
-                <span className="text-yellow-400 text-xs font-medium">Tier 4 • 52 reps/min</span>
+              <div className="h-20 sm:h-24 bg-neutral-900/90 rounded-[20px] sm:rounded-[40px] outline outline-1 outline-white/5 flex flex-col items-center justify-center space-y-0.5 p-2 sm:p-3 text-center">
+                <span className="text-slate-400 text-[9px] sm:text-[10px] font-bold font-mono uppercase tracking-wider">AGILITY</span>
+                <span className="text-white text-2xl sm:text-3xl font-black font-mono">84%</span>
+                <span className="text-yellow-400 text-[10px] sm:text-xs font-medium">Tier 4 • 52 reps/min</span>
               </div>
             </div>
 
           </div>
 
           {/* Right Glowing Spherical Avatar Viewport Container with Drag & Scale Transform */}
-          <div className="w-72 sm:w-80 h-72 sm:h-80 relative bg-orange-500/10 rounded-full shadow-[0px_24px_48px_0px_rgba(0,0,0,0.50)] flex items-center justify-center shrink-0 overflow-hidden outline outline-1 outline-white/10 z-10">
-            <div className="w-72 h-72 absolute opacity-20 bg-orange-500 rounded-full blur-3xl pointer-events-none" />
-            <div className="w-56 h-56 absolute opacity-10 bg-yellow-400 rounded-full blur-3xl pointer-events-none" />
-            <div className="w-44 h-44 absolute opacity-5 bg-white rounded-full blur-[50px] pointer-events-none" />
+          <div className="w-44 sm:w-64 lg:w-80 h-44 sm:h-64 lg:h-80 relative bg-orange-500/10 rounded-full shadow-[0px_24px_48px_0px_rgba(0,0,0,0.50)] flex items-center justify-center shrink-0 overflow-hidden outline outline-1 outline-white/10 z-10">
+            <div className="w-44 sm:w-64 h-44 sm:h-64 absolute opacity-20 bg-orange-500 rounded-full blur-3xl pointer-events-none" />
+            <div className="w-36 sm:w-52 h-36 sm:h-52 absolute opacity-10 bg-yellow-400 rounded-full blur-3xl pointer-events-none" />
+            <div className="w-28 sm:w-40 h-28 sm:h-40 absolute opacity-5 bg-white rounded-full blur-[50px] pointer-events-none" />
             
             {/* Spherical Viewport Frame Mask */}
             <div 
@@ -462,7 +462,7 @@ export default function ProfilePage() {
               onMouseMove={handleMouseMoveCanvas}
               onMouseUp={handleMouseUpCanvas}
               onMouseLeave={handleMouseUpCanvas}
-              className="w-56 h-56 relative rounded-full z-10 overflow-hidden cursor-grab active:cursor-grabbing border-4 border-yellow-500/60 shadow-[0_10px_20px_rgba(0,0,0,0.8)] flex items-center justify-center bg-transparent"
+              className="w-36 h-36 sm:w-56 sm:h-56 relative rounded-full z-10 overflow-hidden cursor-grab active:cursor-grabbing border-4 border-yellow-500/60 shadow-[0_10px_20px_rgba(0,0,0,0.8)] flex items-center justify-center bg-transparent"
               title="Click & Drag to reposition PFP inside circular frame"
             >
               {/* Banner Backdrop filling any remaining area of the circle */}
@@ -815,7 +815,7 @@ export default function ProfilePage() {
               </div>
 
               {/* Heatmap Chart Visualizer */}
-              <div className="grid grid-cols-7 gap-2 items-end pt-4 pb-2 border-b border-white/10 min-h-[160px]">
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 items-end pt-4 pb-2 border-b border-white/10 min-h-[160px]">
                 {[
                   { day: 'Mon', reps: '120r', height: 'h-20', active: false },
                   { day: 'Tue', reps: '95r', height: 'h-16', active: false },
