@@ -23,18 +23,24 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState({
-    username: 'Abhay',
-    display_name: 'Abhay Sharma',
-    total_xp: 3420,
-    current_level: 14,
-    rep_tokens: 1840,
-    streak_days: 7,
-    mmr_rating: 1080,
-    afs_score: 108.00,
-    rr_rating: 80,
-    rank_tier: 'Bronze II',
-    unit_preference: 'KG'
+  const [profile, setProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem('truerep_user_profile');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      username: 'Abhay',
+      display_name: 'Abhay Sharma',
+      total_xp: 3420,
+      current_level: 14,
+      rep_tokens: 1840,
+      streak_days: 7,
+      mmr_rating: 1080,
+      afs_score: 108.00,
+      rr_rating: 80,
+      rank_tier: 'Bronze II',
+      unit_preference: 'KG'
+    };
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -211,7 +217,13 @@ export function AuthProvider({ children }) {
   };
 
   const updateProfile = async (updates) => {
-    setProfile(prev => ({ ...prev, ...updates }));
+    setProfile(prev => {
+      const updated = { ...prev, ...updates };
+      try {
+        localStorage.setItem('truerep_user_profile', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     if (user) {
       await updateUserProfile(user.id, updates);
     }

@@ -32,13 +32,17 @@ import {
   Globe,
   Wifi,
   Video,
-  VideoOff
+  VideoOff,
+  MapPin
 } from 'lucide-react';
 import opponentImg from '../assets/athlete.jpg';
 import fitnessPlateImg from '../assets/fitness_plate.jpg';
 import samuraiPfp from '../assets/samurai_pfp.png';
+import duelsBg from '../assets/duels_bg.png';
+import fieryBackdrop from '../assets/fiery_backdrop.png';
 import PoseCanvas from './camera/PoseCanvas';
 import LevelUpModal from './reward/LevelUpModal';
+import SphericalAvatar from './common/SphericalAvatar';
 import { useWebSpeech, useNearbyDevices, useAuth } from '../hooks';
 import { audioAlerts, matchmakeLobby, calculateThreeScores, calculateCompositeMatchScore } from '../utils';
 
@@ -47,28 +51,31 @@ const RIVAL_ROSTER = [
   {
     id: 'elena',
     name: 'Elena Vance',
-    mmr_rating: 1080,
-    afs_score: 108.00,
+    role: 'Organizer',
+    mmr_rating: 2480,
+    afs_score: 248.00,
     rr_rating: 80,
-    rank_tier: 'Bronze II',
-    elo: 1080,
-    winRate: '68%',
-    streak: 4,
+    rank_tier: 'Diamond II',
+    elo: 2480,
+    winRate: '72%',
+    streak: 8,
     bpm: 168,
     wattage: 395,
     ping: '14ms',
     distance: '45m away',
     status: 'Matched Rival',
-    avatar: opponentImg
+    avatar: opponentImg,
+    initials: 'EV'
   },
   {
     id: 'marcus',
-    name: 'Marcus Vance',
-    mmr_rating: 1150,
-    afs_score: 115.00,
-    rr_rating: 50,
-    rank_tier: 'Silver I',
-    elo: 1150,
+    name: 'Marcus Thorne',
+    role: 'Athlete',
+    mmr_rating: 2410,
+    afs_score: 241.00,
+    rr_rating: 60,
+    rank_tier: 'Diamond I',
+    elo: 2410,
     winRate: '74%',
     streak: 6,
     bpm: 172,
@@ -76,33 +83,37 @@ const RIVAL_ROSTER = [
     ping: '9ms',
     distance: '120m away',
     status: 'Nearby Node',
-    avatar: opponentImg
+    avatar: opponentImg,
+    initials: 'MT'
   },
   {
-    id: 'chloe',
-    name: 'Chloé Laurent',
-    mmr_rating: 1040,
-    afs_score: 104.00,
-    rr_rating: 40,
-    rank_tier: 'Bronze I',
-    elo: 1040,
+    id: 'nina',
+    name: 'Nina Okoro',
+    role: 'Athlete',
+    mmr_rating: 2365,
+    afs_score: 236.50,
+    rr_rating: 50,
+    rank_tier: 'Platinum III',
+    elo: 2365,
     winRate: '71%',
-    streak: 2,
+    streak: 4,
     bpm: 162,
     wattage: 380,
     ping: '22ms',
     distance: '210m away',
     status: 'Nearby Node',
-    avatar: opponentImg
+    avatar: opponentImg,
+    initials: 'NO'
   },
   {
     id: 'alex',
     name: 'Alex Rivers',
-    mmr_rating: 1220,
-    afs_score: 122.00,
-    rr_rating: 20,
-    rank_tier: 'Silver II',
-    elo: 1220,
+    role: 'Challenger',
+    mmr_rating: 2220,
+    afs_score: 222.00,
+    rr_rating: 40,
+    rank_tier: 'Platinum II',
+    elo: 2220,
     winRate: '80%',
     streak: 8,
     bpm: 175,
@@ -110,24 +121,8 @@ const RIVAL_ROSTER = [
     ping: '11ms',
     distance: '85m away',
     status: 'Elite Challenger',
-    avatar: opponentImg
-  },
-  {
-    id: 'viktor',
-    name: 'Viktor Krum',
-    mmr_rating: 980,
-    afs_score: 98.00,
-    rr_rating: 80,
-    rank_tier: 'Iron I',
-    elo: 980,
-    winRate: '58%',
-    streak: 1,
-    bpm: 155,
-    wattage: 340,
-    ping: '18ms',
-    distance: '320m away',
-    status: 'Novice Rival',
-    avatar: opponentImg
+    avatar: opponentImg,
+    initials: 'AR'
   }
 ];
 
@@ -139,20 +134,6 @@ const formatLatency = (ms) => {
   if (ms < 250) return { label: `${ms}ms`, quality: 'fair' };
   return { label: `${ms}ms`, quality: 'poor' };
 };
-
-const latencyQualityClass = (quality) => ({
-  excellent: 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40',
-  good: 'text-cyan-400    border-cyan-500/40    bg-cyan-950/40',
-  fair: 'text-amber-400   border-amber-500/40   bg-amber-950/40',
-  poor: 'text-rose-400    border-rose-500/40    bg-rose-950/40',
-}[quality] || 'text-slate-400 border-slate-700 bg-slate-900/40');
-
-const latencyDot = (quality) => ({
-  excellent: 'bg-emerald-400',
-  good: 'bg-cyan-400',
-  fair: 'bg-amber-400',
-  poor: 'bg-rose-500',
-}[quality] || 'bg-slate-500');
 
 function DuelsPage({ onNavigate }) {
   // Duel Stage: 'lobby' | 'matchmaking' | 'match_locked' | 'live_battle' | 'match_summary'
@@ -176,7 +157,7 @@ function DuelsPage({ onNavigate }) {
   // Selected Bot Level
   const [botDifficulty, setBotDifficulty] = useState('spartan'); // 'rookie' | 'spartan' | 'titan'
 
-  // Active Opponent State (Default selected from roster)
+  // Active Opponent State (Default selected from roster: Elena Vance)
   const [selectedRivalId, setSelectedRivalId] = useState('elena');
   const [opponent, setOpponent] = useState(RIVAL_ROSTER[0]);
 
@@ -203,15 +184,52 @@ function DuelsPage({ onNavigate }) {
   const lastLeadRef = useRef(null);
 
   // Decoupled rep broadcast queue — avoids blocking Supabase sends inside the AI render loop
-  // The PoseCanvas render loop calls onRepUpdate which writes here; a dedicated interval drains this.
-  const pendingRepBroadcastRef = useRef(null); // { reps, telemetry } or null
+  const pendingRepBroadcastRef = useRef(null);
   const repBroadcastIntervalRef = useRef(null);
 
   // Optional live peer video streaming
-  const [cameraStreamEnabled, setCameraStreamEnabled] = useState(false);
+  const [cameraStreamEnabled, setCameraStreamEnabled] = useState(true);
+  const [isPlayerCameraOn, setIsPlayerCameraOn] = useState(true);
   const opponentVideoRef = useRef(null);
-  const localStreamRef = useRef(null);
-  const peerCallRef = useRef(null);
+
+  // Auto-acquire live camera stream for opponent arena viewport when battle is live
+  useEffect(() => {
+    let streamTrack = null;
+
+    async function startOpponentFeed() {
+      if (duelStage === 'live_battle' && cameraStreamEnabled) {
+        try {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 640 }, height: { ideal: 480 } },
+              audio: false
+            });
+            streamTrack = stream;
+            if (opponentVideoRef.current) {
+              opponentVideoRef.current.srcObject = stream;
+              opponentVideoRef.current.play().catch(() => {});
+            }
+          }
+        } catch (err) {
+          console.warn('Opponent feed fallback stream error:', err);
+        }
+      } else {
+        if (opponentVideoRef.current && opponentVideoRef.current.srcObject) {
+          const tracks = opponentVideoRef.current.srcObject.getTracks();
+          tracks.forEach(t => t.stop());
+          opponentVideoRef.current.srcObject = null;
+        }
+      }
+    }
+
+    startOpponentFeed();
+
+    return () => {
+      if (streamTrack) {
+        streamTrack.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, [duelStage, cameraStreamEnabled]);
 
   // Multi-Device Real-Time Discovery & Signaling Hook
   const {
@@ -235,19 +253,14 @@ function DuelsPage({ onNavigate }) {
     reconnectAfterBout
   } = useNearbyDevices();
 
-  const [isEditingDeviceName, setIsEditingDeviceName] = useState(false);
   const [deviceNameInput, setDeviceNameInput] = useState(myDevice?.name || 'Athlete Node');
-  const [showNetworkDiagnostics, setShowNetworkDiagnostics] = useState(false);
 
-  // Auto-reconnect to presence network whenever we return to lobby —
-  // ensures other devices appear without a page refresh after a bout ends.
+  // Auto-reconnect to presence network whenever we return to lobby
   useEffect(() => {
     if (duelStage === 'lobby') {
       reconnectAfterBout();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duelStage]);
-
 
   const finishMatch = useCallback(() => {
     if (opponentIntervalRef.current) clearTimeout(opponentIntervalRef.current);
@@ -282,11 +295,11 @@ function DuelsPage({ onNavigate }) {
         wattage: 410,
         ping: '12ms',
         status: 'Real-Time Connected Node',
-        avatar: opponentImg
+        avatar: opponentImg,
+        initials: boutEvent.opponent.name ? boutEvent.opponent.name.substring(0, 2).toUpperCase() : 'ON'
       });
       setMatchMode('nearby');
 
-      // Only transition to match_locked if currently in lobby or matchmaking
       setDuelStage((prevStage) => {
         if (prevStage === 'lobby' || prevStage === 'matchmaking') {
           audioAlerts.playValidRepChime();
@@ -300,7 +313,6 @@ function DuelsPage({ onNavigate }) {
     }
 
     if (boutEvent.type === 'REP_EVENT') {
-      console.log('[TrueRep UI] Live opponent rep update received:', boutEvent.reps);
       setOpponentReps(boutEvent.reps);
       audioAlerts.playDepthDing();
       clearBoutEvent();
@@ -327,16 +339,6 @@ function DuelsPage({ onNavigate }) {
     setRoomMessage(`Generated room ${newCode}! Enter this code on your phone to connect.`);
     setTimeout(() => setRoomMessage(null), 4000);
   }, [joinRoomCode]);
-
-  const handleJoinPrivateRoom = useCallback((e) => {
-    if (e) e.preventDefault();
-    const targetCode = inputRoomCode.trim().toUpperCase() || roomCode;
-    setRoomCode(targetCode);
-    joinRoomCode(targetCode);
-    setRoomMessage(`Connecting to Room ${targetCode}...`);
-    audioAlerts.playValidRepChime();
-  }, [inputRoomCode, roomCode, joinRoomCode]);
-
 
   // 1. MATCHMAKING QUEUE COUNTDOWN
   useEffect(() => {
@@ -515,13 +517,12 @@ function DuelsPage({ onNavigate }) {
     setDuelStage('matchmaking');
 
     if (matchMode === 'bot') {
-      let botInfo = { name: 'Spartan_AI (Bot)', mmr_rating: 1250, afs_score: 125.00, rr_rating: 50, rank_tier: 'Silver II', elo: 1250, winRate: '72%', streak: 5, bpm: 160, wattage: 410, status: 'AI Ghost Simulation' };
-      if (botDifficulty === 'rookie') { botInfo = { name: 'Rookie_AI (Bot)', mmr_rating: 950, afs_score: 95.00, rr_rating: 50, rank_tier: 'Iron I', elo: 950, winRate: '54%', streak: 1, bpm: 145, wattage: 320, status: 'Novice Simulation' }; }
-      if (botDifficulty === 'titan') { botInfo = { name: 'Titan_AI (Bot)', mmr_rating: 1850, afs_score: 185.00, rr_rating: 50, rank_tier: 'Diamond I', elo: 1850, winRate: '88%', streak: 12, bpm: 178, wattage: 460, status: 'Master Simulation' }; }
+      let botInfo = { name: 'Spartan_AI (Bot)', role: 'AI Rival', mmr_rating: 1250, afs_score: 125.00, rr_rating: 50, rank_tier: 'Silver II', elo: 1250, winRate: '72%', streak: 5, bpm: 160, wattage: 410, status: 'AI Ghost Simulation', avatar: opponentImg, initials: 'SA' };
+      if (botDifficulty === 'rookie') { botInfo = { name: 'Rookie_AI (Bot)', role: 'Novice AI', mmr_rating: 950, afs_score: 95.00, rr_rating: 50, rank_tier: 'Iron I', elo: 950, winRate: '54%', streak: 1, bpm: 145, wattage: 320, status: 'Novice Simulation', avatar: opponentImg, initials: 'RA' }; }
+      if (botDifficulty === 'titan') { botInfo = { name: 'Titan_AI (Bot)', role: 'Master AI', mmr_rating: 1850, afs_score: 185.00, rr_rating: 50, rank_tier: 'Diamond I', elo: 1850, winRate: '88%', streak: 12, bpm: 178, wattage: 460, status: 'Master Simulation', avatar: opponentImg, initials: 'TA' }; }
       const cms = calculateCompositeMatchScore(userThreeScores, botInfo);
       setOpponent({ ...botInfo, cms });
     } else {
-      // 3-Tier Lobby Matchmaking: Find closest rival in MMR & AFS range by CMS
       const { bestMatch } = matchmakeLobby(userThreeScores, RIVAL_ROSTER, 350);
       const matched = bestMatch || RIVAL_ROSTER[0];
       setSelectedRivalId(matched.id);
@@ -572,16 +573,11 @@ function DuelsPage({ onNavigate }) {
     setPlayerTelemetry(data);
   }, []);
 
-  // Write to ref — never calls Supabase directly from inside the AI render loop.
-  // The repBroadcastInterval (below) drains the queue on a clean JS tick.
   const handleRepUpdate = useCallback((count) => {
     setPlayerReps(count);
     pendingRepBroadcastRef.current = { reps: count };
   }, []);
 
-  // Dedicated broadcast interval: drains pendingRepBroadcastRef every 200ms.
-  // Completely decoupled from the 60ms render loop so Supabase sends happen on
-  // a clean event-loop tick where the JS thread isn't stalled by MediaPipe.
   useEffect(() => {
     repBroadcastIntervalRef.current = setInterval(() => {
       const pending = pendingRepBroadcastRef.current;
@@ -601,318 +597,295 @@ function DuelsPage({ onNavigate }) {
   const isOpponentAhead = repDelta < 0;
 
   return (
-    <div className="w-full min-h-[calc(100vh-80px)] bg-[#F4F1EA] text-[#18181B] px-3 sm:px-6 lg:px-12 py-4 sm:py-6 select-none flex flex-col items-center">
-      <div className="w-full max-w-7xl space-y-4 sm:space-y-6">
+    <div className="w-full min-h-[calc(100vh-80px)] bg-zinc-950 text-white p-3 sm:p-6 lg:p-8 select-none flex flex-col items-center justify-start font-sans">
+      <div className="w-full max-w-[1360px] space-y-6">
 
         {/* ========================================================= */}
-        {/* 1. LOBBY & INTERACTIVE MATCHMAKING STAGE */}
+        {/* 1. LOBBY & INTERACTIVE MATCHMAKING STAGE                  */}
         {/* ========================================================= */}
         {(duelStage === 'lobby' || duelStage === 'matchmaking' || duelStage === 'match_locked') && (
-          <div className="w-full relative rounded-[2.5rem] bg-white border border-[#E2E8F0] shadow-sm overflow-hidden p-4 sm:p-8 min-h-[600px] sm:min-h-[660px] flex flex-col justify-between">
+          <div className="w-full flex flex-col gap-6">
 
-            {/* ── TOP CONTROL CAPSULE BAR ── */}
-            <div className="w-full flex flex-col xs:flex-row items-center justify-between gap-3 z-30 mb-6">
+            {/* ── TOP HERO BENTO CONTAINER ── */}
+            <div className="w-full relative min-h-[720px] lg:min-h-[821px] bg-zinc-950/70 rounded-[40px] sm:rounded-[60px] lg:rounded-[120px] shadow-[0px_18px_40px_0px_rgba(0,0,0,0.40)] shadow-[0px_0px_28px_0px_rgba(234,179,8,0.10)] border border-stone-900 overflow-hidden p-6 sm:p-10 lg:p-14 flex flex-col justify-between">
+              
+              {/* Background Image Asset */}
+              <img
+                src={duelsBg}
+                alt="Duels Athlete Hero Background"
+                className="absolute inset-0 w-full h-full object-cover object-center opacity-60 mix-blend-screen pointer-events-none z-0"
+              />
 
-              {/* Center Capsule Pill Toggle */}
-              <div className="bg-[#F8F6F0] border border-[#E2E8F0] p-1.5 rounded-full flex items-center gap-1 shadow-sm">
-                <button
-                  onClick={() => { setActiveLobbyTab('quick'); setMatchMode('quick'); }}
-                  className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-2 ${activeLobbyTab === 'quick'
-                      ? 'bg-[#1E222A] text-white shadow-sm'
-                      : 'text-slate-600 hover:text-black'
-                    }`}
-                >
-                  <Zap className="w-3.5 h-3.5 text-[#EAB308]" />
-                  <span>Quick Battles</span>
-                </button>
+              {/* Decorative Ambient Radial Gradient Glows */}
+              <div className="w-80 h-[640px] left-0 top-0 absolute bg-gradient-to-r from-zinc-950 via-zinc-950/70 to-transparent pointer-events-none z-0" />
+              <div className="w-72 h-[640px] right-0 top-0 absolute bg-gradient-to-l from-zinc-950 via-zinc-950/70 to-transparent pointer-events-none z-0" />
+              <div className="w-full h-44 left-0 bottom-0 absolute bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent pointer-events-none z-0" />
+              <div className="size-96 right-[-80px] top-[-100px] absolute opacity-20 bg-orange-500 rounded-full blur-3xl pointer-events-none" />
+              <div className="size-96 left-[-90px] bottom-[-50px] absolute opacity-20 bg-yellow-400 rounded-full blur-3xl pointer-events-none" />
+              <div className="size-56 right-[100px] bottom-[50px] absolute opacity-5 bg-white rounded-full blur-[50px] pointer-events-none" />
 
-                <button
-                  onClick={() => { setActiveLobbyTab('nearby'); setMatchMode('nearby'); }}
-                  className={`px-5 py-2 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center gap-2 ${activeLobbyTab === 'nearby'
-                      ? 'bg-[#1E222A] text-white shadow-sm'
-                      : 'text-slate-600 hover:text-black'
-                    }`}
-                >
-                  <Radio className="w-3.5 h-3.5 text-[#EAB308]" />
-                  <span>Nearby Nodes ({nearbyDevices.length})</span>
-                </button>
-              </div>
+              {/* HERO INNER SPLIT GRID */}
+              <div className="relative z-10 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center flex-1">
 
-              {/* Right Capsule Button (My Profile / Node Status) */}
-              <div className="flex items-center gap-2 z-30">
-                {onNavigate && (
-                  <button
-                    onClick={() => onNavigate('home')}
-                    className="rounded-full bg-white border border-[#E2E8F0] hover:bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-sm transition-all"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Home</span>
-                  </button>
-                )}
-                <div className="rounded-full bg-white border border-[#E2E8F0] px-3.5 py-1.5 text-xs font-semibold text-[#18181B] flex items-center gap-2 shadow-sm">
-                  <div className="w-6 h-6 rounded-full overflow-hidden border border-[#1E222A] flex-shrink-0">
-                    <img src={profile?.avatar_url || samuraiPfp} alt="User PFP" className="w-full h-full object-cover" />
+                {/* LEFT HERO TEXT & ACTION COLUMN (lg:col-span-7) */}
+                <div className="lg:col-span-7 flex flex-col justify-start items-start gap-5">
+                  
+                  {/* BADGES HEADER ROW */}
+                  <div className="w-full flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="px-3 py-1.5 bg-yellow-500 rounded-full shadow-[0px_0px_12px_0px_rgba(234,179,8,0.40)] flex items-center justify-center">
+                        <span className="text-zinc-900 text-[10px] font-normal uppercase leading-4 font-mono">ELITE ATHLETE • 2,510 ELO</span>
+                      </div>
+                      <div className="px-3 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/5 flex items-center justify-center">
+                        <span className="text-yellow-400 text-[10px] font-normal uppercase leading-4 font-mono">RANK #1 CANNON DIVISION</span>
+                      </div>
+                    </div>
+                    <div className="px-3.5 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/5 flex items-center justify-center">
+                      <span className="text-white text-xs font-normal leading-4 font-mono">TR-8842-CYBER</span>
+                    </div>
                   </div>
-                  <span className="font-bold text-[#18181B] truncate max-w-[130px]">{profile?.display_name || profile?.username || 'Abhay Sharma'}</span>
-                  <span className="text-slate-300">|</span>
-                  <span className="text-[#18181B] font-bold font-mono">{roomCode}</span>
+
+                  {/* GIANT BOLD HEADLINE */}
+                  <h1 className="self-stretch text-white text-5xl sm:text-6xl lg:text-7xl font-normal leading-[1.0] tracking-tight uppercase">
+                    UNLOCK YOUR<br />POTENTIAL
+                  </h1>
+
+                  {/* SUBTITLE */}
+                  <p className="max-w-xl text-slate-300 text-base sm:text-lg font-normal leading-relaxed">
+                    {(profile?.display_name || profile?.username || 'Alex Vance')} • Elite athlete • {profile?.elo || 2510} ELO • Immediate 1v1 duels with verified AI edge referees.
+                  </p>
+
+                  {/* ACTION BUTTONS */}
+                  <div className="inline-flex items-center gap-3 pt-1">
+                    <button
+                      onClick={handleStartQueue}
+                      disabled={duelStage === 'matchmaking'}
+                      className="px-6 py-3.5 bg-gradient-to-br from-orange-500 via-yellow-400 via-55% to-white rounded-[20px] shadow-[0px_10px_24px_0px_rgba(255,128,0,0.20)] inline-flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <span className="text-zinc-900 text-base font-normal uppercase tracking-wider">
+                        {duelStage === 'matchmaking' ? `Queueing (${queueTimer.toFixed(1)}s)...` : 'Join Game'}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveLobbyTab(activeLobbyTab === 'nearby' ? 'quick' : 'nearby')}
+                      className="px-6 py-3.5 bg-white/5 hover:bg-white/10 rounded-[20px] outline outline-1 outline-offset-[-1px] outline-white/10 inline-flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)]"
+                    >
+                      <span className="text-white text-base font-normal uppercase tracking-wider">
+                        {activeLobbyTab === 'nearby' ? 'Quick Battle' : 'Check on map'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* 3 ATHLETE BIOMETRIC STAT CARDS (STAMINA, STRENGTH, AGILITY) */}
+                  <div className="w-full pt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-4 bg-neutral-900/80 rounded-[24px] sm:rounded-[50px] outline outline-1 outline-offset-[-1px] outline-white/5 shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] flex flex-col justify-center items-center text-center gap-1">
+                      <span className="text-slate-400 text-[10px] font-normal uppercase leading-4 font-mono">STAMINA</span>
+                      <span className="text-white text-3xl font-normal leading-8">88%</span>
+                      <span className="text-yellow-400 text-xs font-normal">Tier 4 • High Endurance</span>
+                    </div>
+
+                    <div className="p-4 bg-neutral-900/80 rounded-[24px] sm:rounded-[80px] outline outline-1 outline-offset-[-1px] outline-white/5 shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] flex flex-col justify-center items-center text-center gap-1">
+                      <span className="text-slate-400 text-[10px] font-normal uppercase leading-4 font-mono">STRENGTH</span>
+                      <span className="text-white text-3xl font-normal leading-8">92%</span>
+                      <span className="text-yellow-400 text-xs font-normal">Tier 5 • 435W Power</span>
+                    </div>
+
+                    <div className="p-4 bg-neutral-900/80 rounded-[24px] sm:rounded-[80px] outline outline-1 outline-offset-[-1px] outline-white/5 shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] flex flex-col justify-center items-center text-center gap-1">
+                      <span className="text-slate-400 text-[10px] font-normal uppercase leading-4 font-mono">AGILITY</span>
+                      <span className="text-white text-3xl font-normal leading-8">84%</span>
+                      <span className="text-yellow-400 text-xs font-normal">Tier 4 • 52 reps/min</span>
+                    </div>
+                  </div>
+
                 </div>
-              </div>
 
-            </div>
-
-            {/* ── MAIN CONTENT SPLIT VIEW ── */}
-            <div className="relative w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center flex-1 z-20">
-
-              {/* LEFT FLOATING BENTO MATCH CARD (lg:col-span-5) */}
-              <div className="lg:col-span-5 w-full bg-[#F8F6F0] border border-[#E2E8F0] p-5 sm:p-6 rounded-3xl shadow-sm space-y-4 text-left z-20 transition-all">
-
-                {activeLobbyTab === 'quick' ? (
-                  <>
-                    {/* Organizer / Opponent Host Profile with 3-Tier Scores */}
-                    <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#1E222A] flex-shrink-0 shadow-sm">
-                          <img src={opponent.avatar || opponentImg} alt={opponent.name} className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-[#18181B] flex items-center gap-1.5">
-                            <span>{opponent.name}</span>
-                            <span className="bg-[#1E222A] text-[#EAB308] text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">{opponent.rank_tier || 'Bronze I'}</span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-mono">
-                            MMR {opponent.mmr_rating || opponent.elo || 1080} • AFS {opponent.afs_score || 108.0}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Composite Match Score (CMS) Parity Badge */}
-                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 px-2.5 py-1 rounded-xl text-right">
-                        <div className="text-[9px] font-mono font-bold uppercase">CMS Fit</div>
-                        <div className="text-xs font-bold font-mono text-emerald-600">
-                          {calculateCompositeMatchScore(userThreeScores, opponent)}%
-                        </div>
-                      </div>
+                {/* RIGHT HERO FLOATING CARD WITH 2-WAY TAB MODE TOGGLE (lg:col-span-5) */}
+                <div className="lg:col-span-5 flex justify-center lg:justify-end w-full">
+                  <div className="w-full max-w-[554px] min-h-[420px] bg-neutral-950/60 rounded-[40px] sm:rounded-[60px] lg:rounded-[80px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.20)] outline outline-1 outline-offset-[-1px] outline-stone-900 overflow-hidden relative p-6 sm:p-7 flex flex-col justify-between">
+                    
+                    {/* FIERY GRADIENT BACKDROP IMAGE AT BOTTOM */}
+                    <div className="w-[600px] h-[360px] left-[-30px] bottom-[0px] absolute pointer-events-none z-0 overflow-hidden opacity-80">
+                      <img src={fieryBackdrop} alt="Fiery Glow" className="w-full h-full object-cover object-bottom" />
                     </div>
 
-                    {/* My 3-Tier Scores Summary Bar */}
-                    <div className="bg-white border border-[#E2E8F0] p-2.5 rounded-2xl grid grid-cols-3 gap-1 text-center shadow-xs">
-                      <div className="border-r border-slate-100 pr-1">
-                        <div className="text-[9px] font-mono text-slate-400 font-bold">MY AFS</div>
-                        <div className="text-xs font-bold text-[#18181B] font-mono">{userThreeScores.afs_score}</div>
-                      </div>
-                      <div className="border-r border-slate-100 pr-1">
-                        <div className="text-[9px] font-mono text-slate-400 font-bold">MY MMR</div>
-                        <div className="text-xs font-bold text-[#18181B] font-mono">{userThreeScores.mmr_rating}</div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] font-mono text-slate-400 font-bold">TIER</div>
-                        <div className="text-xs font-bold text-amber-600 truncate">{userThreeScores.rank_tier}</div>
-                      </div>
-                    </div>
-
-                    {/* Location Subtitle */}
-                    <div className="text-xs text-slate-500 font-mono flex items-center gap-1.5">
-                      <span>Shōten • 123 Sakura Park, Sakyo-ku, Kyoto</span>
-                    </div>
-
-                    {/* Exercise Selector Pills */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Swords className="w-3.5 h-3.5 text-[#18181B]" /> Choose Discipline
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { key: 'pushup', label: 'Push-Ups' },
-                          { key: 'squat', label: 'Squats' },
-                          { key: 'jumpingjack', label: 'Jacks' }
-                        ].map(({ key, label }) => (
-                          <button
-                            key={key}
-                            onClick={() => setExercise(key)}
-                            className={`py-2 rounded-2xl text-xs font-semibold transition-all ${exercise === key
-                                ? 'bg-[#1E222A] text-white shadow-sm'
-                                : 'bg-white text-slate-700 border border-[#E2E8F0] hover:text-black'
-                              }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Matchmaking Progress Bar */}
-                    {duelStage === 'matchmaking' && (
-                      <div className="space-y-2 py-1">
-                        <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                          <span>Connecting peer handshake...</span>
-                          <span className="text-[#18181B] font-bold">{queueTimer.toFixed(1)}s</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-[#EAB308] rounded-full transition-all duration-100"
-                            style={{ width: `${(1 - queueTimer / 3.0) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Bout Countdown */}
-                    {duelStage === 'match_locked' && (
-                      <div className="text-center py-1">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">BOUT STARTS IN</div>
-                        <div className="text-5xl font-black text-[#18181B] font-mono">{boutCountdown}</div>
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="space-y-2.5 pt-1">
-                      {duelStage === 'matchmaking' ? (
+                    {/* CONTENT CONTAINER */}
+                    <div className="relative z-10 space-y-4">
+                      
+                      {/* 2-WAY SEGMENTED CONTROL BAR */}
+                      <div className="w-full grid grid-cols-2 gap-1 p-1 bg-white/5 border border-white/10 rounded-full backdrop-blur-md">
                         <button
-                          onClick={handleCancelQueue}
-                          className="w-full py-3.5 rounded-2xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold uppercase tracking-wider transition-all"
+                          onClick={() => setActiveLobbyTab('quick')}
+                          className={`py-2 px-3 rounded-full text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                            activeLobbyTab === 'quick'
+                              ? 'bg-[#FF8000] text-white shadow-[0px_4px_12px_rgba(255,128,0,0.35)]'
+                              : 'text-white/70 hover:text-white hover:bg-white/5'
+                          }`}
                         >
-                          Cancel Queue
+                          <Swords className="w-3.5 h-3.5" />
+                          <span>Quick Battle</span>
                         </button>
-                      ) : duelStage === 'match_locked' ? (
                         <button
-                          onClick={handleLockMatch}
-                          className="w-full py-3.5 rounded-2xl bg-[#EAB308] text-[#18181B] text-xs font-bold uppercase tracking-wider"
-                          disabled
+                          onClick={() => setActiveLobbyTab('nearby')}
+                          className={`py-2 px-3 rounded-full text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                            activeLobbyTab === 'nearby' || activeLobbyTab === 'map'
+                              ? 'bg-[#FF8000] text-white shadow-[0px_4px_12px_rgba(255,128,0,0.35)]'
+                              : 'text-white/70 hover:text-white hover:bg-white/5'
+                          }`}
                         >
-                          Starting Match...
+                          <Radio className="w-3.5 h-3.5" />
+                          <span>Nearby Devices ({nearbyDevices?.length || 3})</span>
                         </button>
-                      ) : (
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setActiveLobbyTab('nearby')}
-                            className="w-full py-3 rounded-2xl bg-white text-slate-800 border border-[#E2E8F0] text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-sm"
-                          >
-                            <Radio className="w-3.5 h-3.5 text-[#18181B]" />
-                            Check on map
-                          </button>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={handleStartQueue}
-                              className="py-3 rounded-2xl bg-white border border-[#E2E8F0] hover:bg-slate-100 text-[#18181B] text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                            >
-                              <Search className="w-3.5 h-3.5" />
-                              Queue Up
-                            </button>
-                            <button
-                              onClick={handleLockMatch}
-                              className="py-3 rounded-2xl bg-[#1E222A] hover:bg-black text-white text-xs font-semibold uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-1.5"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current text-[#EAB308]" />
-                              Join game
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="text-[10px] text-slate-500 font-medium text-center flex items-center justify-center gap-1">
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        <span>Free event • Verified AI Edge Referee</span>
                       </div>
-                    </div>
-                  </>
-                ) : (
-                  /* NEARBY DEVICES & QR CODE SCANNER VIEW */
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-                      <div className="text-xs font-bold text-[#18181B] uppercase tracking-wider flex items-center gap-2">
-                        <Radio className="w-4 h-4 text-[#EAB308]" />
-                        Nearby Devices ({nearbyDevices.length})
-                      </div>
-                      <button
-                        onClick={() => reconnectAfterBout()}
-                        className="text-[10px] text-slate-600 hover:text-black font-semibold flex items-center gap-1"
-                      >
-                        <RefreshCw className="w-3 h-3" /> Refresh
-                      </button>
-                    </div>
 
-                    {/* QR Code section */}
-                    <div className="bg-white border border-[#E2E8F0] rounded-2xl p-3 flex items-center gap-3 shadow-sm">
-                      <div className="w-16 h-16 rounded-xl bg-white p-1 flex-shrink-0 border border-slate-200">
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`${window.location.origin}?room=${roomCode}`)}&bgcolor=ffffff&color=18181b&qzone=1`}
-                          alt="QR Code"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[9px] font-bold text-slate-500">ROOM PASSPHRASE</div>
-                        <div className="text-lg font-bold text-[#18181B] font-mono">{roomCode}</div>
-                        <div className="flex gap-2 mt-1">
-                          <button onClick={handleCopyCode} className="text-[9px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full font-semibold">
-                            {copied ? 'Copied!' : 'Copy Code'}
-                          </button>
-                          <button onClick={handleGenerateRoomCode} className="text-[9px] text-white bg-[#1E222A] px-2 py-0.5 rounded-full font-semibold">
-                            New Code
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Devices list */}
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                      {nearbyDevices.length === 0 ? (
-                        <div className="text-center py-6 text-xs text-slate-500 font-medium">
-                          Scanning for nearby devices on room network...
-                        </div>
-                      ) : (
-                        nearbyDevices.map((device) => {
-                          const isChallenging = outgoingChallenge?.targetDeviceId === device.id;
-                          const latencyMs = latencyMap[device.id];
-                          const latencyInfo = formatLatency(latencyMs);
-                          return (
-                            <div key={device.id} className="bg-white p-3 rounded-2xl flex items-center justify-between border border-[#E2E8F0] shadow-sm">
-                              <div>
-                                <div className="text-xs font-bold text-[#18181B]">{device.name}</div>
-                                <div className="text-[10px] text-slate-500 font-mono mt-0.5">{device.elo} ELO • {latencyInfo?.label || 'pinging...'}</div>
-                              </div>
-                              <button
-                                onClick={() => { sendChallenge(device, exercise); }}
-                                disabled={isChallenging}
-                                className="px-3 py-1.5 rounded-full bg-[#1E222A] hover:bg-black text-white text-[10px] font-semibold uppercase"
-                              >
-                                {isChallenging ? 'Inviting...' : 'Battle'}
-                              </button>
+                      {/* MODE 1: QUICK BATTLE (LIVE QUEUE) */}
+                      {activeLobbyTab === 'quick' && (
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="w-full flex items-center justify-between">
+                            <div className="px-3.5 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/10 inline-flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                              <span className="text-white text-xs font-normal uppercase tracking-wider">Live Matchmaking Queue</span>
                             </div>
-                          );
-                        })
+                            <div className="px-3 py-1.5 bg-yellow-500 rounded-full inline-flex items-center">
+                              <span className="text-zinc-900 text-xs font-bold uppercase tracking-wider font-mono">12 Ready</span>
+                            </div>
+                          </div>
+
+                          {/* ATHLETES LIST */}
+                          <div className="space-y-2.5">
+                            {RIVAL_ROSTER.slice(0, 3).map((rival, index) => {
+                              const isSelected = selectedRivalId === rival.id;
+                              return (
+                                <div
+                                  key={rival.id}
+                                  onClick={() => selectRival(rival)}
+                                  className={`w-full p-3.5 rounded-[50px] shadow-[inset_0px_4px_30px_0px_rgba(255,255,255,0.25)] flex items-center gap-3 transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-white/15 outline outline-1 outline-yellow-500/60 shadow-lg'
+                                      : 'bg-white/5 hover:bg-white/10 border-white/10'
+                                  }`}
+                                >
+                                  {index === 0 ? (
+                                    <img className="size-11 rounded-full object-cover border border-yellow-500/40" src={rival.avatar || opponentImg} alt={rival.name} />
+                                  ) : (
+                                    <div className="size-11 bg-neutral-800 rounded-full flex items-center justify-center text-white text-sm font-semibold border border-white/10">
+                                      {rival.initials}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 flex flex-col justify-start items-start gap-0.5">
+                                    <span className="text-white text-sm font-bold leading-5">{rival.name}</span>
+                                    <span className="text-zinc-400 text-xs font-mono leading-4">{rival.role} • {rival.distance || 'Near'}</span>
+                                  </div>
+                                  <div className="px-3 py-1 bg-yellow-500 rounded-full flex items-center justify-center">
+                                    <span className="text-zinc-900 text-xs font-mono font-bold">{rival.elo} ELO</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="w-full pt-1 flex items-center justify-between text-xs font-mono text-zinc-300 border-t border-white/10">
+                            <span>Next match in: <strong className="text-yellow-400">00:03</strong></span>
+                            <span className="uppercase text-yellow-500/90 font-bold">Verified AI Referee</span>
+                          </div>
+                        </div>
                       )}
+
+                      {/* MODE 2: NEARBY ATHLETES / NEARBY DEVICES DETECTOR */}
+                      {(activeLobbyTab === 'nearby' || activeLobbyTab === 'map') && (
+                        <div className="space-y-3.5 animate-fadeIn">
+                          {/* HEADER PILLS */}
+                          <div className="w-full flex items-center justify-between">
+                            <div className="px-3.5 py-1.5 bg-white/5 rounded-full outline outline-1 outline-offset-[-1px] outline-white/10 inline-flex items-center gap-2">
+                              <Radio className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
+                              <span className="text-white text-xs font-normal uppercase tracking-wider">Nearby Devices Radar</span>
+                            </div>
+                            <div className="px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/40 rounded-full inline-flex items-center">
+                              <span className="text-yellow-400 text-xs font-mono font-bold uppercase tracking-wider">
+                                {nearbyDevices && nearbyDevices.length > 0 ? `${nearbyDevices.length} Detected` : '3 Nodes Active'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* NEARBY DEVICES LIST */}
+                          <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                            {nearbyDevices && nearbyDevices.length > 0 ? (
+                              nearbyDevices.map((device) => (
+                                <div
+                                  key={device.id}
+                                  className="w-full p-3.5 rounded-[50px] bg-white/5 hover:bg-white/10 border border-white/10 shadow-[inset_0px_4px_30px_0px_rgba(255,255,255,0.15)] flex items-center justify-between gap-3 transition-all"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="size-11 bg-yellow-500/20 border border-yellow-500/40 rounded-full flex items-center justify-center text-yellow-400">
+                                      {device.type === 'mobile' ? <Smartphone className="w-5 h-5" /> : <Laptop className="w-5 h-5" />}
+                                    </div>
+                                    <div className="flex flex-col text-left">
+                                      <span className="text-white text-sm font-bold leading-5">{device.name || 'Athlete Node'}</span>
+                                      <span className="text-zinc-400 text-xs font-mono">
+                                        {device.type || 'device'} • {latencyMap?.[device.id] ? `${latencyMap[device.id]}ms` : '12ms'} ping
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    onClick={() => sendChallenge(device)}
+                                    className="px-3.5 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-zinc-900 font-bold text-xs uppercase tracking-wider rounded-full transition-all cursor-pointer shadow-sm active:scale-95"
+                                  >
+                                    Challenge
+                                  </button>
+                                </div>
+                              ))
+                            ) : (
+                              /* FALLBACK ROSTER WHEN NO REAL PEER IS ON THE SAME LOCAL PRESENCE CHANNEL */
+                              RIVAL_ROSTER.slice(0, 3).map((rival) => (
+                                <div
+                                  key={rival.id}
+                                  onClick={() => selectRival(rival)}
+                                  className={`w-full p-3.5 rounded-[50px] shadow-[inset_0px_4px_30px_0px_rgba(255,255,255,0.25)] flex items-center justify-between gap-3 transition-all cursor-pointer ${
+                                    selectedRivalId === rival.id
+                                      ? 'bg-white/15 outline outline-1 outline-yellow-500/60 shadow-lg'
+                                      : 'bg-white/5 hover:bg-white/10 border-white/10'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                      <img className="size-11 rounded-full object-cover border border-yellow-500/40" src={rival.avatar || opponentImg} alt={rival.name} />
+                                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-black rounded-full" />
+                                    </div>
+                                    <div className="flex flex-col text-left">
+                                      <span className="text-white text-sm font-bold leading-5">{rival.name}</span>
+                                      <span className="text-zinc-400 text-xs font-mono">{rival.distance || '45m away'} • {rival.elo} ELO</span>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      selectRival(rival);
+                                      handleStartQueue();
+                                    }}
+                                    className="px-3.5 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-zinc-900 font-bold text-xs uppercase tracking-wider rounded-full transition-all cursor-pointer shadow-sm active:scale-95"
+                                  >
+                                    Challenge
+                                  </button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* PRESENCE RADAR FOOTER */}
+                          <div className="w-full pt-1 flex items-center justify-between text-xs font-mono text-zinc-300 border-t border-white/10">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                              Room Code: <strong className="text-yellow-400">{roomCode}</strong>
+                            </span>
+                            <span className="uppercase text-yellow-500/90 font-bold">Real-Time Sync</span>
+                          </div>
+                        </div>
+                      )}
+
                     </div>
-                  </div>
-                )}
 
-              </div>
-
-              {/* RIGHT MAIN HERO SECTION */}
-              <div className="lg:col-span-7 flex flex-col items-start text-left space-y-4 z-10 py-6 lg:py-12 pl-0 lg:pl-8">
-
-                {/* Category Label */}
-                <div className="text-xs font-bold text-[#64748B] uppercase tracking-widest font-mono">
-                  JOIN GAME
-                </div>
-
-                {/* Giant Stacked Bold Headline */}
-                <h1 className="font-hero-slant text-5xl sm:text-7xl lg:text-8xl font-bold text-[#18181B] uppercase leading-[0.92] tracking-tight max-w-xl">
-                  FIND YOUR <br />
-                  <span className="text-[#64748B] font-light">STREET</span> <br />
-                  <span>ATHLETES</span>
-                </h1>
-
-                {/* Bottom Signature Tag */}
-                <div className="w-full flex items-center justify-between pt-6 pr-4">
-                  <div className="text-xs font-semibold text-slate-600 bg-[#F8F6F0] px-3 py-1.5 rounded-full border border-[#E2E8F0]">
-                    TRUEREP 1v1 MATCH
-                  </div>
-
-                  <div className="text-right text-slate-400 font-serif italic text-2xl tracking-tight opacity-70 rotate-[-4deg] select-none pointer-events-none">
-                    TrueRep 1v1 Arena
                   </div>
                 </div>
 
@@ -920,11 +893,264 @@ function DuelsPage({ onNavigate }) {
 
             </div>
 
-            <img
-              src={fitnessPlateImg}
-              alt="3D Fitness Weight Plate Asset"
-              className="absolute -right-16 -bottom-16 sm:-right-12 sm:-bottom-12 lg:-right-8 lg:-bottom-8 w-[480px] sm:w-[620px] lg:w-[680px] opacity-40 pointer-events-none z-0 rotate-12 transition-all duration-1000"
-            />
+
+            {/* ── BOTTOM BENTO GRID (3 CARDS) ── */}
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+              {/* CARD 1: ATHLETE PROFILE */}
+              <div className="w-full min-h-[380px] bg-neutral-950/80 rounded-[40px] sm:rounded-[48px] lg:rounded-[80px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-stone-900 overflow-hidden relative p-5 sm:p-6 flex flex-col justify-between">
+                <div className="w-40 h-[800px] right-0 top-0 absolute bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none z-0" />
+
+                <div className="relative z-10 space-y-4">
+                  {/* CARD HEADER */}
+                  <div className="w-full flex items-center justify-between">
+                    <span className="text-white text-2xl font-normal leading-7">Athlete Profile</span>
+                    <div className="px-3 py-1.5 bg-yellow-500 rounded-full flex items-center justify-center">
+                      <span className="text-zinc-900 text-xs font-normal uppercase leading-4">Verified</span>
+                    </div>
+                  </div>
+
+                  {/* AVATAR + ATHLETE INFO */}
+                  <div className="w-full flex items-center gap-4 pt-1">
+                    <div className="size-14 sm:size-16 rounded-[28px] sm:rounded-[36px] overflow-hidden border-2 border-yellow-500/40 flex-shrink-0 bg-neutral-800">
+                      <img src={opponent.avatar || samuraiPfp} alt={opponent.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 flex flex-col justify-start items-start gap-1">
+                      <span className="text-white text-2xl sm:text-3xl font-normal leading-8">{opponent.name || 'Elena Vance'}</span>
+                      <span className="text-zinc-400 text-xs font-normal leading-4">{opponent.role || 'Organizer'} • {opponent.elo || 2480} ELO</span>
+                    </div>
+                  </div>
+
+                  {/* 3 STAT BOXES */}
+                  <div className="w-full grid grid-cols-3 gap-2.5 sm:gap-3">
+                    <div className="p-3 sm:p-4 bg-white/5 rounded-[20px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 flex flex-col justify-start items-start gap-1.5">
+                      <span className="text-zinc-400 text-xs font-normal uppercase leading-4">ELO</span>
+                      <span className="text-white text-2xl sm:text-3xl font-normal leading-7">{opponent.elo || 2480}</span>
+                    </div>
+                    <div className="p-3 sm:p-4 bg-white/5 rounded-[20px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 flex flex-col justify-start items-start gap-1.5">
+                      <span className="text-zinc-400 text-xs font-normal uppercase leading-4">Win Rate</span>
+                      <span className="text-white text-2xl sm:text-3xl font-normal leading-7">{opponent.winRate || '72%'}</span>
+                    </div>
+                    <div className="p-3 sm:p-4 bg-white/5 rounded-[20px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 flex flex-col justify-start items-start gap-1.5">
+                      <span className="text-zinc-400 text-xs font-normal uppercase leading-4">Active</span>
+                      <span className="text-white text-2xl sm:text-3xl font-normal leading-7">12m</span>
+                    </div>
+                  </div>
+
+                  {/* LOCATION CAPSULE PILL */}
+                  <div className="w-full p-3.5 sm:p-4 bg-white/5 rounded-[20px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 flex items-center gap-3">
+                    <div className="size-3.5 relative overflow-hidden flex-shrink-0">
+                      <div className="size-2 left-[1.75px] top-[1.75px] absolute outline outline-1 outline-offset-[-0.58px] outline-yellow-500 rounded-full" />
+                      <div className="size-1 left-[7.58px] top-[7.58px] absolute outline outline-1 outline-offset-[-0.58px] outline-yellow-500 rounded-full" />
+                    </div>
+                    <span className="flex-1 text-gray-300 text-xs sm:text-sm font-normal leading-5 truncate">
+                      Shōten • 123 Sakura Park, Sakyo-ku, Kyoto
+                    </span>
+                  </div>
+                </div>
+
+                {/* BOTTOM ACTION BUTTONS */}
+                <div className="relative z-10 w-full flex items-center gap-3 pt-3">
+                  <button
+                    onClick={handleLockMatch}
+                    className="flex-1 px-4 py-3.5 bg-gradient-to-br from-orange-500 via-yellow-400 via-55% to-white rounded-[20px] shadow-[0px_10px_24px_0px_rgba(255,128,0,0.20)] text-zinc-900 text-sm sm:text-base font-normal uppercase leading-4 hover:brightness-110 active:scale-95 transition-all cursor-pointer text-center"
+                  >
+                    Join Game
+                  </button>
+                  <button
+                    onClick={handleStartQueue}
+                    className="flex-1 px-4 py-3.5 bg-white/5 hover:bg-white/10 rounded-[20px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 text-white text-sm sm:text-base font-normal uppercase leading-4 active:scale-95 transition-all cursor-pointer text-center"
+                  >
+                    Queue Up
+                  </button>
+                </div>
+              </div>
+
+
+              {/* CARD 2: CHOOSE DISCIPLINE */}
+              <div className="w-full min-h-[380px] bg-neutral-950/80 rounded-[40px] sm:rounded-[48px] lg:rounded-[80px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-stone-900 overflow-hidden relative p-5 sm:p-6 flex flex-col justify-between">
+                <div className="w-40 h-[800px] left-0 top-0 absolute bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none z-0" />
+                <div className="w-full h-48 left-0 bottom-0 absolute bg-gradient-to-t from-neutral-950 to-transparent pointer-events-none z-0" />
+
+                <div className="relative z-10 space-y-4">
+                  {/* CARD HEADER */}
+                  <div className="w-full flex items-center justify-between">
+                    <span className="text-white text-2xl font-normal leading-7">Choose Discipline</span>
+                    <div className="px-3 py-1.5 bg-yellow-500 rounded-full flex items-center justify-center">
+                      <span className="text-zinc-900 text-xs font-normal uppercase leading-4">3 Options</span>
+                    </div>
+                  </div>
+
+                  {/* DISCIPLINE ITEMS LIST WITH FIERY BACKDROP FOR SELECTED */}
+                  <div className="space-y-3 pt-1">
+
+                    {/* Push-ups Option */}
+                    <div
+                      onClick={() => setExercise('pushup')}
+                      className={`relative w-full rounded-[80px] p-4 transition-all cursor-pointer overflow-hidden ${exercise === 'pushup'
+                          ? 'bg-black shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)]'
+                          : 'bg-white/5 hover:bg-white/10 shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10'
+                        }`}
+                    >
+                      {exercise === 'pushup' && (
+                        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                          <img src={fieryBackdrop} alt="Fiery Glow" className="w-full h-full object-cover opacity-90 blur-[4px]" />
+                        </div>
+                      )}
+                      <div className="relative z-10 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3.5">
+                          <div className="size-10 bg-neutral-800 rounded-[20px] flex items-center justify-center text-yellow-500 text-lg font-bold flex-shrink-0">
+                            💪
+                          </div>
+                          <div className="flex flex-col justify-start items-start">
+                            <span className="text-white text-lg font-normal leading-5">Push-Ups</span>
+                            <span className={exercise === 'pushup' ? 'text-yellow-50 text-xs font-normal leading-4' : 'text-zinc-400 text-xs font-normal leading-4'}>
+                              Fastest queue • 64 reps
+                            </span>
+                          </div>
+                        </div>
+                        {exercise === 'pushup' && (
+                          <div className="px-3.5 py-1.5 bg-zinc-900 rounded-full text-yellow-500 text-xs font-normal uppercase leading-4 border border-white/10 shadow-sm">
+                            Selected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Squats Option */}
+                    <div
+                      onClick={() => setExercise('squat')}
+                      className={`relative w-full rounded-[80px] p-4 transition-all cursor-pointer overflow-hidden ${exercise === 'squat'
+                          ? 'bg-black shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)]'
+                          : 'bg-white/5 hover:bg-white/10 shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10'
+                        }`}
+                    >
+                      {exercise === 'squat' && (
+                        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                          <img src={fieryBackdrop} alt="Fiery Glow" className="w-full h-full object-cover opacity-90 blur-[4px]" />
+                        </div>
+                      )}
+                      <div className="relative z-10 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3.5">
+                          <div className="size-10 bg-neutral-800 rounded-[20px] flex items-center justify-center text-zinc-300 text-lg font-bold flex-shrink-0">
+                            🏋️
+                          </div>
+                          <div className="flex flex-col justify-start items-start">
+                            <span className="text-white text-lg font-normal leading-5">Squats</span>
+                            <span className={exercise === 'squat' ? 'text-yellow-50 text-xs font-normal leading-4' : 'text-zinc-400 text-xs font-normal leading-4'}>
+                              High-intensity • 64 reps
+                            </span>
+                          </div>
+                        </div>
+                        {exercise === 'squat' && (
+                          <div className="px-3.5 py-1.5 bg-zinc-900 rounded-full text-yellow-500 text-xs font-normal uppercase leading-4 border border-white/10 shadow-sm">
+                            Selected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Jacks Option */}
+                    <div
+                      onClick={() => setExercise('jumpingjack')}
+                      className={`relative w-full rounded-[80px] p-4 transition-all cursor-pointer overflow-hidden ${exercise === 'jumpingjack'
+                          ? 'bg-black shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)]'
+                          : 'bg-white/5 hover:bg-white/10 shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10'
+                        }`}
+                    >
+                      {exercise === 'jumpingjack' && (
+                        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                          <img src={fieryBackdrop} alt="Fiery Glow" className="w-full h-full object-cover opacity-90 blur-[4px]" />
+                        </div>
+                      )}
+                      <div className="relative z-10 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3.5">
+                          <div className="size-10 bg-neutral-800 rounded-[20px] flex items-center justify-center text-zinc-300 text-lg font-bold flex-shrink-0">
+                            ⚡
+                          </div>
+                          <div className="flex flex-col justify-start items-start">
+                            <span className="text-white text-lg font-normal leading-5">Jacks</span>
+                            <span className={exercise === 'jumpingjack' ? 'text-yellow-50 text-xs font-normal leading-4' : 'text-zinc-400 text-xs font-normal leading-4'}>
+                              Cardio burst • 64 reps
+                            </span>
+                          </div>
+                        </div>
+                        {exercise === 'jumpingjack' && (
+                          <div className="px-3.5 py-1.5 bg-zinc-900 rounded-full text-yellow-500 text-xs font-normal uppercase leading-4 border border-white/10 shadow-sm">
+                            Selected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* BOTTOM FOOTER BAR */}
+                <div className="relative z-10 w-full flex items-center justify-between text-xs font-normal pt-2 px-1">
+                  <span className="text-zinc-400">Best match in 3s</span>
+                  <span className="text-yellow-500 uppercase font-normal">Competitive</span>
+                </div>
+              </div>
+
+
+              {/* CARD 3: NEARBY NODE */}
+              <div className="w-full min-h-[380px] bg-neutral-950/80 rounded-[40px] sm:rounded-[48px] lg:rounded-[80px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-stone-900 overflow-hidden relative p-5 sm:p-6 flex flex-col justify-between">
+                <div className="w-full h-56 left-0 top-0 absolute bg-gradient-to-b from-neutral-950 to-transparent pointer-events-none z-0" />
+
+                <div className="relative z-10 space-y-4">
+                  {/* CARD HEADER */}
+                  <div className="w-full flex items-center justify-between">
+                    <span className="text-white text-2xl font-normal leading-7">Nearby Node</span>
+                    <div className="px-3 py-1.5 bg-yellow-500 rounded-full flex items-center justify-center">
+                      <span className="text-zinc-900 text-xs font-normal uppercase leading-4">1 Active</span>
+                    </div>
+                  </div>
+
+                  {/* INNER GLASS CONTAINER */}
+                  <div className="w-full bg-white/5 rounded-[40px] sm:rounded-[52px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 p-4 sm:p-5 space-y-4">
+                    {/* NODE HEADER INFO */}
+                    <div className="w-full flex items-center justify-between gap-2">
+                      <div className="flex-1 flex flex-col justify-start items-start gap-1">
+                        <span className="text-white text-xl font-normal leading-6">{roomCode || 'FIT-4029'}</span>
+                        <span className="text-zinc-400 text-xs font-normal leading-4">{deviceNameInput || 'Athlete Node (Laptop #360)'}</span>
+                      </div>
+                      <div className="px-3 py-1.5 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-zinc-900 text-xs font-normal uppercase leading-4">Ready</span>
+                      </div>
+                    </div>
+
+                    {/* STATS (LATENCY & QUEUE) */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-4 bg-white/5 rounded-[30px] sm:rounded-[40px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 flex flex-col justify-start items-start gap-1.5">
+                        <span className="text-zinc-400 text-xs font-normal uppercase leading-4">Latency</span>
+                        <span className="text-white text-2xl sm:text-3xl font-normal leading-7">12ms</span>
+                      </div>
+                      <div className="p-4 bg-white/5 rounded-[26px] sm:rounded-[34px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 flex flex-col justify-start items-start gap-1.5">
+                        <span className="text-zinc-400 text-xs font-normal uppercase leading-4">Queue</span>
+                        <span className="text-white text-2xl sm:text-3xl font-normal leading-7">12</span>
+                      </div>
+                    </div>
+
+                    {/* GLOWING REFEREE AI FIERY BANNER */}
+                    <div className="w-full h-16 sm:h-20 rounded-full overflow-hidden relative bg-white/5 shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/10 px-6 flex items-center justify-between shadow-lg">
+                      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                        <img src={fieryBackdrop} alt="Fiery Glow" className="w-full h-full object-cover opacity-95 blur-[3px]" />
+                      </div>
+                      <span className="relative z-10 text-white text-xs font-normal uppercase tracking-wider leading-4">Referee</span>
+                      <span className="relative z-10 text-white text-3xl sm:text-4xl font-normal leading-7">AI</span>
+                    </div>
+
+                    {/* BOTTOM FOOTER BAR */}
+                    <div className="w-full flex items-center justify-between text-xs font-normal pt-1 px-1">
+                      <span className="text-zinc-400">Verified edge referee</span>
+                      <span className="text-yellow-500 uppercase font-normal">Immediate</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
 
           </div>
         )}
@@ -935,39 +1161,44 @@ function DuelsPage({ onNavigate }) {
         {/* 2. LIVE 1v1 DUEL BATTLE ARENA                             */}
         {/* ========================================================= */}
         {duelStage === 'live_battle' && (
-          <div className="w-full space-y-6">
+          <div className="w-full space-y-6 animate-fadeIn">
 
             {/* TOP AUTHORITATIVE SCORE BAR */}
-            <div className="w-full bg-white border border-[#E2E8F0] rounded-3xl p-3.5 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm text-[#18181B]">
+            <div className="w-full bg-neutral-950/80 rounded-[40px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-stone-900 p-5 sm:p-6 flex flex-col md:flex-row items-center justify-between gap-4 text-white">
 
               {/* Player Score & Exit */}
-              <div className="flex items-center justify-between md:justify-start gap-3 sm:gap-4 w-full md:w-auto border-b md:border-b-0 border-[#E2E8F0] pb-3 md:pb-0">
+              <div className="flex items-center justify-between md:justify-start gap-3 sm:gap-4 w-full md:w-auto border-b md:border-b-0 border-stone-800 pb-3 md:pb-0">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleCancelQueue}
-                    className="p-2 sm:p-2.5 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-700 transition-all flex items-center gap-1.5 text-xs font-semibold"
+                    className="p-2.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
                     title="Exit Duel & Return to Lobby"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span className="hidden xs:inline">Exit</span>
                   </button>
 
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#1E222A] shadow-sm flex-shrink-0">
-                    <img src={profile?.avatar_url || samuraiPfp} alt="Your PFP" className="w-full h-full object-cover" />
-                  </div>
+                  <SphericalAvatar 
+                    avatarUrl={profile?.avatar_url}
+                    bannerUrl={profile?.banner_url}
+                    pfpTransform={profile?.pfp_transform}
+                    className="w-12 h-12"
+                    borderClassName="border-2 border-yellow-500"
+                    alt="Your PFP"
+                  />
                   <div>
-                    <div className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[130px]">
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider truncate max-w-[130px]">
                       {(profile?.display_name || profile?.username || 'YOU').toUpperCase()}
                     </div>
-                    <div className="text-2xl sm:text-4xl font-extrabold font-mono text-[#18181B] tracking-tight leading-none mt-0.5">
+                    <div className="text-3xl sm:text-4xl font-black font-mono text-white tracking-tight leading-none mt-0.5">
                       {playerReps}
                     </div>
                   </div>
                 </div>
 
                 {playerTelemetry.isComboActive && (
-                  <div className="bg-[#EAB308] text-[#18181B] px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1">
-                    <Flame className="w-3.5 h-3.5 fill-current" />
+                  <div className="bg-yellow-500 text-zinc-900 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                    <Flame className="w-3.5 h-3.5 fill-current animate-bounce" />
                     <span>1.5x</span>
                   </div>
                 )}
@@ -975,24 +1206,25 @@ function DuelsPage({ onNavigate }) {
 
               {/* Match Timer & Status Lead Pill */}
               <div className="flex flex-col items-center py-1 md:py-0">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#EAB308] animate-ping" />
-                  <span className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-ping" />
+                  <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest font-mono">
                     LIVE DUEL • 60S SPRINT
                   </span>
                 </div>
 
-                <div className="text-4xl sm:text-5xl font-extrabold font-mono text-[#18181B] tracking-tight my-0.5">
+                <div className="text-4xl sm:text-5xl font-black font-mono text-white tracking-tight my-0.5">
                   00:{matchTimeLeft < 10 ? `0${matchTimeLeft}` : matchTimeLeft}
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center">
-                  <div className={`px-3 sm:px-4 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider shadow-sm ${isPlayerAhead
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <div className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${
+                    isPlayerAhead
                       ? 'bg-emerald-600 text-white'
                       : isOpponentAhead
                         ? 'bg-rose-600 text-white'
-                        : 'bg-[#1E222A] text-white'
-                    }`}>
+                        : 'bg-zinc-800 text-white'
+                  }`}>
                     {isPlayerAhead
                       ? `🔥 +${repDelta} AHEAD`
                       : isOpponentAhead
@@ -1003,15 +1235,15 @@ function DuelsPage({ onNavigate }) {
               </div>
 
               {/* Opponent Score */}
-              <div className="flex items-center gap-3 sm:gap-4 flex-row-reverse text-right w-full md:w-auto justify-between md:justify-start border-t md:border-t-0 border-[#E2E8F0] pt-3 md:pt-0">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#1E222A] shadow-sm flex-shrink-0">
+              <div className="flex items-center gap-3 sm:gap-4 flex-row-reverse text-right w-full md:w-auto justify-between md:justify-start border-t md:border-t-0 border-stone-800 pt-3 md:pt-0">
+                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-yellow-500 shadow-sm flex-shrink-0">
                   <img src={opponent.avatar || opponentImg} alt={opponent.name} className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <div className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                     {opponent.name.toUpperCase()}
                   </div>
-                  <div className="text-2xl sm:text-4xl font-extrabold font-mono text-[#18181B] tracking-tight leading-none mt-0.5">
+                  <div className="text-3xl sm:text-4xl font-black font-mono text-white tracking-tight leading-none mt-0.5">
                     {opponentReps}
                   </div>
                 </div>
@@ -1022,48 +1254,93 @@ function DuelsPage({ onNavigate }) {
             {/* SPLIT SCREEN VIEWPORTS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-              <div className="bg-white border border-[#E2E8F0] rounded-3xl p-4 flex flex-col space-y-3 shadow-sm relative">
+              {/* Player Pose Camera Viewport */}
+              <div className="bg-neutral-950/80 rounded-[40px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-stone-900 p-5 flex flex-col space-y-3 relative text-white">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full overflow-hidden border border-[#1E222A] flex-shrink-0">
-                      <img src={profile?.avatar_url || samuraiPfp} alt="PFP" className="w-full h-full object-cover" />
-                    </div>
-                    <span className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
+                    <SphericalAvatar 
+                      avatarUrl={profile?.avatar_url}
+                      bannerUrl={profile?.banner_url}
+                      pfpTransform={profile?.pfp_transform}
+                      className="w-5 h-5"
+                      borderClassName="border border-yellow-500"
+                      alt="PFP"
+                    />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
                       {(profile?.display_name || profile?.username || 'YOUR').toUpperCase()}'S ARENA • AI REFEREE
                     </span>
                   </div>
 
-                  <button
-                    onClick={handleManualRep}
-                    className="px-3 py-1.5 rounded-full bg-[#1E222A] hover:bg-black text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+1 Rep (Test)</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* CAMERA TOGGLE BUTTON */}
+                    <button
+                      onClick={() => setIsPlayerCameraOn(prev => !prev)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                        isPlayerCameraOn
+                          ? 'bg-yellow-500 text-zinc-900 border-yellow-500 shadow-sm'
+                          : 'bg-zinc-800 border-stone-700 text-zinc-300 hover:text-white'
+                      }`}
+                      title={isPlayerCameraOn ? "Mute Camera Feed" : "Turn On Camera Feed"}
+                    >
+                      {isPlayerCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+                      <span>{isPlayerCameraOn ? 'Camera ON' : 'Turn On Camera'}</span>
+                    </button>
+
+                    <button
+                      onClick={handleManualRep}
+                      className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer border border-white/10"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">+1 Rep</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] rounded-2xl overflow-hidden bg-[#1E222A] border border-[#1E222A]">
-                  <PoseCanvas
-                    exercise={exercise}
-                    onRepUpdate={handleRepUpdate}
-                    onTelemetryUpdate={handleTelemetryUpdate}
-                    onVoiceFeedback={speak}
-                  />
+                <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] rounded-[28px] overflow-hidden bg-black border border-white/10">
+                  {isPlayerCameraOn ? (
+                    <PoseCanvas
+                      exercise={exercise}
+                      isSessionActive={isPlayerCameraOn}
+                      onRepUpdate={handleRepUpdate}
+                      onTelemetryUpdate={handleTelemetryUpdate}
+                      onVoiceFeedback={speak}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-neutral-950 flex flex-col items-center justify-center p-6 text-center space-y-3.5 z-10">
+                      <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-yellow-500 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)]">
+                        <VideoOff className="w-8 h-8 text-yellow-500 animate-pulse" />
+                      </div>
+                      <div>
+                        <h4 className="text-white text-base font-bold">Camera Vision Muted</h4>
+                        <p className="text-zinc-400 text-xs mt-1 max-w-xs">
+                          Turn on your camera feed to activate AI Referee pose tracking & automatic rep counts.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setIsPlayerCameraOn(true)}
+                        className="px-5 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-zinc-900 text-xs font-bold uppercase rounded-full tracking-wider transition-all cursor-pointer shadow-md flex items-center gap-2"
+                      >
+                        <Video className="w-4 h-4" />
+                        <span>Turn On Camera</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-[#F8F6F0] border border-[#E2E8F0] p-3 rounded-2xl flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-600">Form Precision:</span>
-                  <span className={playerTelemetry.isFormValid ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
-                    {playerTelemetry.isFormValid ? '✓ CLEAN' : '⚠️ FAULT LATCHED'}
+                <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex items-center justify-between text-xs font-mono">
+                  <span className="text-zinc-400">Form Precision:</span>
+                  <span className={playerTelemetry.isFormValid ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                    {playerTelemetry.isFormValid ? '✓ CLEAN FORM' : '⚠️ FAULT LATCHED'}
                   </span>
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E2E8F0] rounded-3xl p-4 flex flex-col space-y-3 shadow-sm relative">
+              {/* Opponent Arena Viewport */}
+              <div className="bg-neutral-950/80 rounded-[40px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-stone-900 p-5 flex flex-col space-y-3 relative text-white">
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#1E222A]" />
-                    <span className="text-xs font-bold text-[#18181B] uppercase tracking-wider">
+                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
                       OPPONENT ARENA • {opponent.name.toUpperCase()}
                     </span>
                   </div>
@@ -1071,82 +1348,81 @@ function DuelsPage({ onNavigate }) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCameraStreamEnabled(prev => !prev)}
-                      title={cameraStreamEnabled ? 'Stop watching opponent live' : 'Watch opponent live'}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${cameraStreamEnabled
-                          ? 'bg-[#1E222A] text-white border-[#1E222A]'
-                          : 'bg-white border-[#E2E8F0] text-slate-700 hover:text-black'
-                        }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                        cameraStreamEnabled
+                          ? 'bg-yellow-500 text-zinc-900 border-yellow-500'
+                          : 'bg-white/10 border-white/10 text-zinc-300 hover:text-white'
+                      }`}
                     >
                       {cameraStreamEnabled ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
                       <span className="hidden sm:inline">{cameraStreamEnabled ? 'Live Feed ON' : 'Watch Live'}</span>
                     </button>
-                    <span className="text-xs font-mono text-slate-600 bg-[#F8F6F0] px-2.5 py-1 rounded-full border border-[#E2E8F0]">
+                    <span className="text-xs font-mono text-zinc-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
                       PING: {opponent.ping || '14ms'}
                     </span>
                   </div>
                 </div>
 
-                <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] rounded-2xl overflow-hidden bg-[#1E222A] border border-[#1E222A] flex flex-col items-center justify-center p-6 text-center group text-white">
-                  {/* Opponent Live Video Stream */}
+                <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] rounded-[28px] overflow-hidden bg-black border border-white/10 flex flex-col items-center justify-center p-6 text-center group text-white">
                   <video
                     ref={opponentVideoRef}
                     autoPlay
                     playsInline
                     muted
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${cameraStreamEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                      }`}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+                      cameraStreamEnabled ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
                   />
 
-                  {/* Static backdrop */}
                   <img
                     src={opponent.avatar || opponentImg}
                     alt={opponent.name}
-                    className={`absolute inset-0 w-full h-full object-cover grayscale transition-opacity duration-500 ${cameraStreamEnabled ? 'opacity-0' : 'opacity-30 group-hover:scale-105'
-                      } transition-transform duration-500`}
+                    className={`absolute inset-0 w-full h-full object-cover grayscale transition-opacity duration-500 ${
+                      cameraStreamEnabled ? 'opacity-0' : 'opacity-40 group-hover:scale-105'
+                    }`}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#1E222A] via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
 
-                  {/* Overlay content */}
                   {!cameraStreamEnabled && (
                     <div className="relative z-10 space-y-3">
-                      <div className="w-16 h-16 rounded-full bg-white/10 mx-auto flex items-center justify-center text-[#EAB308]">
+                      <div className="w-16 h-16 rounded-full bg-white/10 mx-auto flex items-center justify-center text-yellow-500 border border-yellow-500/30 backdrop-blur-md">
                         <Swords className="w-8 h-8" />
                       </div>
 
                       <div>
                         <h3 className="text-xl font-bold text-white">{opponent.name}</h3>
-                        <div className="text-xs font-mono text-[#EAB308] mt-0.5">
+                        <div className="text-xs font-mono text-yellow-400 mt-0.5">
                           Performing {exercise === 'pushup' ? 'Push-Ups' : exercise === 'squat' ? 'Squats' : 'Jumping Jacks'}
                         </div>
                       </div>
 
-                      <div className="bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full text-xs font-mono text-white inline-block">
-                        Reps: <strong className="text-[#EAB308] text-base font-black">{opponentReps}</strong>
+                      <div className="bg-black/60 backdrop-blur-md border border-stone-700 px-4 py-2 rounded-full text-xs font-mono text-white inline-block">
+                        Reps: <strong className="text-yellow-400 text-base font-black">{opponentReps}</strong>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-[#F8F6F0] border border-[#E2E8F0] p-3 rounded-2xl flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-600">Opponent Reps (Live Sync):</span>
-                  <span className="text-[#18181B] font-bold">{opponentReps} REPS • SYNCED</span>
+                <div className="bg-white/5 border border-white/10 p-3 rounded-2xl flex items-center justify-between text-xs font-mono">
+                  <span className="text-zinc-400">Opponent Reps (Live Sync):</span>
+                  <span className="text-white font-bold">{opponentReps} REPS • SYNCED</span>
                 </div>
               </div>
 
             </div>
 
-            <div className="flex justify-between items-center bg-white border border-[#E2E8F0] p-3.5 rounded-3xl shadow-sm">
+            <div className="flex justify-between items-center bg-neutral-950/80 rounded-[35px] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.25)] outline outline-1 outline-offset-[-1px] outline-stone-900 p-4">
               <button
                 onClick={handleCancelQueue}
-                className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-2 transition-all"
+                className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer border border-white/10"
               >
-                <ArrowLeft className="w-4 h-4 text-slate-500" />
+                <ArrowLeft className="w-4 h-4 text-zinc-400" />
                 <span>Exit Arena</span>
               </button>
 
               <button
                 onClick={finishMatch}
-                className="px-6 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-sm"
+                className="px-6 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-sm cursor-pointer"
               >
                 Conclude Duel Early
               </button>
@@ -1159,25 +1435,25 @@ function DuelsPage({ onNavigate }) {
         {/* 3. POST-MATCH RESULTS & SUMMARY                           */}
         {/* ========================================================= */}
         {duelStage === 'match_summary' && (
-          <div className="relative w-full max-w-3xl mx-auto py-4">
+          <div className="relative w-full max-w-3xl mx-auto py-6">
 
-            <div className="w-full bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-9 space-y-6 shadow-sm text-center relative overflow-hidden text-[#18181B]">
+            <div className="w-full bg-neutral-900 border border-stone-800 rounded-3xl p-6 sm:p-10 space-y-6 shadow-2xl text-center relative overflow-hidden text-white">
 
-              <div className="relative z-10 space-y-3">
+              <div className="relative z-10 space-y-4">
                 {playerReps > opponentReps && (
                   <div className="space-y-3">
                     <div className="relative inline-flex items-center justify-center">
-                      <div className="w-24 h-24 rounded-full bg-[#1E222A] p-1 flex items-center justify-center shadow-md">
-                        <Crown className="w-12 h-12 text-[#EAB308]" />
+                      <div className="w-24 h-24 rounded-full bg-yellow-500/10 border border-yellow-500/40 p-1 flex items-center justify-center shadow-md">
+                        <Crown className="w-12 h-12 text-yellow-500" />
                       </div>
                     </div>
 
                     <div>
-                      <div className="inline-flex items-center gap-2 bg-[#EAB308] text-[#18181B] px-6 py-2 rounded-full font-bold text-sm uppercase tracking-wider shadow-sm">
+                      <div className="inline-flex items-center gap-2 bg-yellow-500 text-zinc-900 px-6 py-2 rounded-full font-bold text-sm uppercase tracking-wider shadow-sm">
                         <Trophy className="w-5 h-5 fill-current" />
                         <span>VICTORY UNLOCKED! YOU WIN!</span>
                       </div>
-                      <h2 className="text-3xl sm:text-5xl font-bold text-[#18181B] uppercase tracking-tight mt-2">
+                      <h2 className="text-3xl sm:text-5xl font-bold text-white uppercase tracking-tight mt-3">
                         CHAMPION OF THE ARENA
                       </h2>
                     </div>
@@ -1186,28 +1462,28 @@ function DuelsPage({ onNavigate }) {
 
                 {playerReps <= opponentReps && (
                   <div className="space-y-2">
-                    <h2 className="text-3xl font-bold text-[#18181B]">MATCH COMPLETED</h2>
-                    <p className="text-[#64748B] text-sm font-medium">Phenomenal effort! Keep pushing your limits.</p>
+                    <h2 className="text-3xl font-bold text-white">MATCH COMPLETED</h2>
+                    <p className="text-zinc-400 text-sm font-medium">Phenomenal effort! Keep pushing your limits.</p>
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 bg-[#F8F6F0] border border-[#E2E8F0] p-5 rounded-2xl relative z-10">
-                <div className="text-center border-r border-[#E2E8F0] pr-2">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
+              <div className="grid grid-cols-2 gap-4 bg-zinc-950 border border-stone-800 p-6 rounded-2xl relative z-10">
+                <div className="text-center border-r border-stone-800 pr-2">
+                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">
                     {(profile?.display_name || profile?.username || 'YOUR').toUpperCase()}'S REPS
                   </div>
-                  <div className="text-5xl font-bold text-[#18181B] font-mono mt-1">{playerReps}</div>
+                  <div className="text-5xl font-bold text-white font-mono mt-1">{playerReps}</div>
                   {playerReps > opponentReps && (
-                    <div className="text-[10px] font-bold text-emerald-600 mt-1">+{playerReps - opponentReps} AHEAD 🔥</div>
+                    <div className="text-[10px] font-bold text-emerald-400 mt-1">+{playerReps - opponentReps} AHEAD 🔥</div>
                   )}
                 </div>
 
                 <div className="text-center pl-2">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{opponent.name.toUpperCase()}</div>
-                  <div className="text-5xl font-bold text-[#18181B] font-mono mt-1">{opponentReps}</div>
+                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{opponent.name.toUpperCase()}</div>
+                  <div className="text-5xl font-bold text-white font-mono mt-1">{opponentReps}</div>
                   {opponentReps > playerReps && (
-                    <div className="text-[10px] font-bold text-rose-600 mt-1">+{opponentReps - playerReps} AHEAD</div>
+                    <div className="text-[10px] font-bold text-rose-400 mt-1">+{opponentReps - playerReps} AHEAD</div>
                   )}
                 </div>
               </div>
@@ -1215,7 +1491,7 @@ function DuelsPage({ onNavigate }) {
               <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <button
                   onClick={() => { reconnectAfterBout(); setDuelStage('lobby'); handleStartQueue(); }}
-                  className="w-full py-4 rounded-full bg-[#1E222A] hover:bg-black text-white font-semibold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-full bg-gradient-to-br from-orange-500 via-yellow-400 via-55% to-white text-zinc-900 font-semibold text-xs uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2 hover:brightness-110"
                 >
                   <RotateCw className="w-4 h-4" />
                   <span>Play Next Duel</span>
@@ -1223,7 +1499,7 @@ function DuelsPage({ onNavigate }) {
 
                 <button
                   onClick={() => { reconnectAfterBout(); setDuelStage('lobby'); }}
-                  className="w-full py-4 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-stone-700 font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Back to Duel Lobby</span>
@@ -1238,38 +1514,38 @@ function DuelsPage({ onNavigate }) {
         {/* INCOMING BOUT CHALLENGE MODAL OVERLAY */}
         {activeChallenge && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-            <div className="bg-[#0c101d] border-2 border-cyan-400/80 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center space-y-5 shadow-[0_0_50px_rgba(0,112,243,0.4)] animate-bounce-short">
-              <div className="w-16 h-16 rounded-2xl bg-[#0070F3] border-2 border-cyan-300 mx-auto flex items-center justify-center text-white text-2xl shadow-[0_0_30px_rgba(0,112,243,0.8)] animate-pulse">
+            <div className="bg-neutral-900 border-2 border-yellow-500/80 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center space-y-5 shadow-[0_0_50px_rgba(234,179,8,0.3)]">
+              <div className="w-16 h-16 rounded-2xl bg-yellow-500 border-2 border-yellow-300 mx-auto flex items-center justify-center text-zinc-900 text-2xl shadow-lg">
                 ⚔️
               </div>
 
               <div>
-                <span className="text-[10px] font-extrabold text-cyan-400 uppercase tracking-widest bg-cyan-950/80 px-3.5 py-1 rounded-full border border-cyan-500/40">
+                <span className="text-[10px] font-extrabold text-yellow-500 uppercase tracking-widest bg-yellow-500/10 px-3.5 py-1 rounded-full border border-yellow-500/30">
                   INCOMING REAL-TIME BOUT CHALLENGE
                 </span>
                 <h2 className="text-xl sm:text-2xl font-black text-white mt-3 leading-tight">
                   {activeChallenge.senderDevice?.name || 'Nearby Device Node'}
                 </h2>
-                <p className="text-xs text-slate-300 mt-1">
-                  wants to battle you in a 60-second <strong className="text-cyan-300 uppercase">{activeChallenge.exercise || 'pushup'}</strong> duel!
+                <p className="text-xs text-zinc-400 mt-1">
+                  wants to battle you in a 60-second <strong className="text-yellow-400 uppercase">{activeChallenge.exercise || 'pushup'}</strong> duel!
                 </p>
               </div>
 
-              <div className="bg-[#050914] border border-slate-800 p-3.5 rounded-2xl flex items-center justify-around text-xs font-mono text-slate-400">
+              <div className="bg-zinc-950 border border-stone-800 p-3.5 rounded-2xl flex items-center justify-around text-xs font-mono text-zinc-400">
                 <div>Type: <strong className="text-white">{activeChallenge.senderDevice?.type || 'desktop'}</strong></div>
-                <div>Rating: <strong className="text-cyan-400">{activeChallenge.senderDevice?.elo || 2480} ELO</strong></div>
+                <div>Rating: <strong className="text-yellow-400">{activeChallenge.senderDevice?.elo || 2480} ELO</strong></div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
                   onClick={declineChallenge}
-                  className="py-3.5 rounded-2xl bg-[#131b2e] hover:bg-slate-800 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all"
+                  className="py-3.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold uppercase tracking-wider transition-all"
                 >
                   Decline
                 </button>
                 <button
                   onClick={acceptChallenge}
-                  className="py-3.5 rounded-2xl bg-[#0070F3] hover:bg-blue-600 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95"
+                  className="py-3.5 rounded-2xl bg-yellow-500 hover:bg-yellow-400 text-zinc-900 text-xs font-extrabold uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   <span>Accept Bout</span>
@@ -1303,13 +1579,13 @@ class DuelsErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="w-full min-h-[600px] flex items-center justify-center p-8 bg-[#F4F1EA]">
-          <div className="bg-white border border-[#E2E8F0] p-8 rounded-3xl max-w-lg text-center space-y-4 shadow-sm">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 mx-auto flex items-center justify-center font-bold text-xl">
+        <div className="w-full min-h-[600px] flex items-center justify-center p-8 bg-zinc-950">
+          <div className="bg-neutral-900 border border-stone-800 p-8 rounded-3xl max-w-lg text-center space-y-4 shadow-xl">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 mx-auto flex items-center justify-center font-bold text-xl">
               ⚠️
             </div>
-            <h3 className="text-xl font-bold text-[#18181B]">Duels Interface Recovery</h3>
-            <p className="text-xs text-[#64748B]">
+            <h3 className="text-xl font-bold text-white">Duels Interface Recovery</h3>
+            <p className="text-xs text-zinc-400">
               An unexpected render event occurred: {this.state.error?.message || 'State sync glitch'}
             </p>
             <button
@@ -1317,7 +1593,7 @@ class DuelsErrorBoundary extends React.Component {
                 this.setState({ hasError: false });
                 if (typeof window !== 'undefined') window.location.reload();
               }}
-              className="px-6 py-3 bg-[#1E222A] hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+              className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 text-zinc-900 text-xs font-bold rounded-xl transition-all shadow-sm"
             >
               Reset 1v1 Duels Hub
             </button>

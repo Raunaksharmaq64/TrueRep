@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Radio, Menu, X, LayoutGrid, Activity, Swords, User } from 'lucide-react';
 import logoImg from '../assets/logo.png';
+import samuraiPfp from '../assets/samurai_pfp.png';
+import SphericalAvatar from './common/SphericalAvatar';
 import { useNearbyDevices, useAuth } from '../hooks';
 import AuthModal from './auth/AuthModal';
 
@@ -11,118 +13,105 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const handleNavClick = (tab) => {
+    if (tab === 'profile' && !user && !profile) {
+      setShowAuthModal(true);
+      return;
+    }
     if (onSelectTab) onSelectTab(tab);
     setMobileMenuOpen(false);
   };
 
   return (
     <>
-      <header className="w-full px-4 sm:px-6 lg:px-12 py-3.5 sm:py-5 relative z-50 bg-[#F4F1EA] border-b border-[#E2E8F0]/80 select-none">
-        <div className="flex items-center justify-between">
+      <header className="w-full px-4 sm:px-6 lg:px-12 py-3.5 sm:py-5 relative z-50 rounded-full bg-[#050505]/80 backdrop-blur-[18px] border-b border-white/5 select-none">
+        <div className="max-w-[1408px] mx-auto flex items-center justify-between">
           {/* Left: Brand Logo */}
           <div className="flex items-center gap-3 sm:gap-6">
             <button
               onClick={() => handleNavClick('home')}
-              className="flex items-center gap-2.5 sm:gap-3 group text-left focus:outline-none"
+              className="group focus:outline-none flex items-center justify-center w-[73px] h-[58px]"
+              aria-label="Home"
             >
               <img
                 src={logoImg}
-                alt="TrueRep Logo"
-                className="w-9 h-9 object-contain rounded-xl group-hover:scale-105 transition-transform duration-200"
+                alt="TRUE REP Logo"
+                className="w-[54px] h-[42px] object-contain group-hover:scale-105 transition-transform duration-200 "
               />
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1 font-extrabold tracking-tight text-base sm:text-lg leading-none text-[#18181B]">
-                  <span>TRUE</span>
-                  <span className="text-[#64748B] font-light">REP</span>
-                  <span className="w-2 h-2 rounded-full bg-[#EAB308] inline-block ml-0.5"></span>
-                </div>
-                <div className="text-[8px] sm:text-[9.5px] font-medium text-slate-400 tracking-widest uppercase leading-tight mt-0.5 hidden xs:block">
-                  <span>AI ATHLETIC REFEREE ENGINE</span>
-                </div>
-              </div>
             </button>
           </div>
 
-          {/* Center: Desktop Navigation Tabs */}
-          <nav className="hidden md:flex items-center gap-1 bg-white border border-[#E2E8F0] p-1.5 rounded-full shadow-sm">
+          {/* Center: Desktop Navigation Tabs Capsule */}
+          <nav className="hidden md:flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] p-1.5 rounded-full backdrop-blur-md">
             <button
               onClick={() => handleNavClick('home')}
-              className={`px-3.5 lg:px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-all duration-200 flex items-center gap-2 ${activeTab === 'home' || activeTab === 'overview'
-                  ? 'bg-[#1E222A] text-white shadow-sm font-semibold'
-                  : 'text-slate-600 hover:text-[#18181B] hover:bg-slate-100'
-                }`}
+              className={`px-5 py-2 rounded-full text-[13px] font-medium tracking-[-1.2px] leading-[16px] transition-all duration-200 flex items-center gap-2 ${
+                activeTab === 'home' || activeTab === 'overview'
+                  ? 'bg-[#FF8000] text-white font-semibold shadow-[0px_8px_18px_rgba(255,128,0,0.25)]'
+                  : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
+              }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
               <span>Overview</span>
             </button>
             <button
               onClick={() => handleNavClick('aicoach')}
-              className={`px-3.5 lg:px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-all duration-200 flex items-center gap-2 ${activeTab === 'aicoach'
-                  ? 'bg-[#1E222A] text-white shadow-sm font-semibold'
-                  : 'text-slate-600 hover:text-[#18181B] hover:bg-slate-100'
-                }`}
+              className={`px-5 py-2 rounded-full text-[13px] font-medium tracking-[-1.2px] leading-[16px] transition-all duration-200 flex items-center gap-2 ${
+                activeTab === 'aicoach'
+                  ? 'bg-[#FF8000] text-white font-semibold shadow-[0px_8px_18px_rgba(255,128,0,0.25)]'
+                  : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
+              }`}
             >
-              <Activity className="w-3.5 h-3.5" />
               <span>AI Coach</span>
             </button>
             <button
               onClick={() => handleNavClick('duels')}
-              className={`px-3.5 lg:px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-all duration-200 flex items-center gap-2 ${activeTab === 'duels'
-                  ? 'bg-[#1E222A] text-white shadow-sm font-semibold'
-                  : 'text-slate-600 hover:text-[#18181B] hover:bg-slate-100'
-                }`}
+              className={`px-5 py-2 rounded-full text-[13px] font-medium tracking-[-1.2px] leading-[16px] transition-all duration-200 flex items-center gap-2 ${
+                activeTab === 'duels'
+                  ? 'bg-[#FF8000] text-white font-semibold shadow-[0px_8px_18px_rgba(255,128,0,0.25)]'
+                  : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
+              }`}
             >
-              <Swords className="w-3.5 h-3.5" />
               <span>1v1 Duels</span>
-              {nearbyDevices.length > 0 && (
-                <span className="bg-[#EAB308] text-[#18181B] text-[9px] font-bold px-1.5 py-0.2 rounded-full flex items-center gap-1">
-                  <Radio className="w-2.5 h-2.5" />
-                  <span>{nearbyDevices.length}</span>
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => handleNavClick('profile')}
-              className={`px-3.5 lg:px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-all duration-200 flex items-center gap-2 ${activeTab === 'profile'
-                  ? 'bg-[#1E222A] text-white shadow-sm font-semibold'
-                  : 'text-slate-600 hover:text-[#18181B] hover:bg-slate-100'
-                }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Profile</span>
+              <span className="bg-[#FF8000] text-[#050505] text-[9px] font-bold px-1.5 py-0 rounded-full tracking-[-0.8px] leading-[16px]">
+                {nearbyDevices.length > 0 ? nearbyDevices.length : 1}
+              </span>
             </button>
           </nav>
 
-          {/* Right: User Level / RepTokens Pill & Auth Trigger */}
+          {/* Right: Auth & Logged-In User Profile Capsule */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {profile ? (
+            {user || profile ? (
               <button
-                onClick={() => setShowAuthModal(true)}
-                className="hidden sm:flex items-center gap-2 bg-white border border-[#E2E8F0] hover:border-slate-400 px-3.5 py-1.5 rounded-full shadow-sm transition-all"
-                title={`Level ${levelProgress?.currentLevel || 1} • ${levelProgress?.progressPercent || 0}% to Lvl ${levelProgress?.nextLevel || 2}`}
+                onClick={() => handleNavClick('profile')}
+                className="group flex items-center gap-2 p-1.5 pl-2 pr-3.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-500/50 rounded-full backdrop-blur-md transition-all duration-200 cursor-pointer shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.15)]"
+                title="View Athlete Profile"
               >
-                <span className="text-xs font-bold text-[#1E222A] flex items-center gap-1">
-                  <span className="w-4 h-4 rounded-full bg-amber-500/20 text-[#EAB308] flex items-center justify-center text-[10px] font-black">L</span>
-                  <span>Lvl {levelProgress?.currentLevel || profile?.current_level || 1}</span>
-                  <span className="text-[10px] text-amber-600 font-mono font-bold">({levelProgress?.progressPercent || 0}%)</span>
-                </span>
-                <span className="h-3 w-px bg-slate-200" />
-                <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-[#1E222A] text-[#EAB308]">
-                  {rankProgress?.rankTier || profile?.rank_tier || 'Bronze II'}
-                </span>
-                <span className="h-3 w-px bg-slate-200" />
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1 font-mono">
-                  <span>🪙</span>
-                  <span>{profile?.rep_tokens || 1840}</span>
-                </span>
+                {/* Spherical PFP Avatar synced across site */}
+                <SphericalAvatar 
+                  avatarUrl={profile?.avatar_url}
+                  bannerUrl={profile?.banner_url}
+                  pfpTransform={profile?.pfp_transform}
+                  className="w-8 h-8"
+                  borderClassName="border-2 border-yellow-500"
+                  alt={profile?.display_name || 'Athlete'}
+                />
+
+                {/* Level Pill */}
+                <div className="px-2.5 py-0.5 bg-yellow-500 text-zinc-900 text-[10px] font-black font-mono rounded-full uppercase tracking-wider shrink-0 shadow-xs">
+                  LVL {profile?.current_level || levelProgress?.currentLevel || 14}
+                </div>
+
+                {/* Rank & ELO Pill */}
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-full text-yellow-400 text-[10px] font-bold font-mono uppercase tracking-wider shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                  <span>{profile?.rank_tier || 'RANK #1 • 2,510 ELO'}</span>
+                </div>
               </button>
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="bg-white hover:bg-slate-100 text-[#1E222A] border border-[#E2E8F0] text-xs font-bold px-4 py-2 rounded-full shadow-sm transition flex items-center gap-1.5"
+                className="w-[124px] h-[46px] bg-[#FF8000] hover:bg-[#FF9000] text-white text-[14px] font-bold tracking-[-1.2px] leading-[16px] rounded-full shadow-[0px_8px_18px_rgba(255,128,0,0.25)] drop-shadow-[0_0_1px_#FF8000] transition-all flex items-center justify-center cursor-pointer"
               >
-                <User className="w-3.5 h-3.5 text-amber-500" />
-                <span>Sign In</span>
+                <span>Sign in</span>
               </button>
             )}
 
@@ -130,7 +119,7 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
             <button
               onClick={() => setMobileMenuOpen(prev => !prev)}
               aria-label="Toggle Navigation Menu"
-              className="md:hidden p-2 rounded-full bg-white border border-[#E2E8F0] text-slate-700 hover:text-[#18181B] focus:outline-none shadow-sm"
+              className="md:hidden p-2 rounded-full bg-white/[0.05] border border-white/10 text-white hover:bg-white/10 focus:outline-none"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -139,13 +128,14 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
 
         {/* Mobile Slide-Down Dropdown Menu */}
         {mobileMenuOpen && (
-          <nav className="md:hidden mt-3 pt-3 border-t border-[#E2E8F0] grid grid-cols-2 gap-2 animate-fadeIn">
+          <nav className="md:hidden mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 animate-fadeIn">
             <button
               onClick={() => handleNavClick('home')}
-              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all ${activeTab === 'home' || activeTab === 'overview'
-                  ? 'bg-[#1E222A] border-[#1E222A] text-white'
-                  : 'bg-white border-[#E2E8F0] text-slate-700 hover:text-black'
-                }`}
+              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all ${
+                activeTab === 'home' || activeTab === 'overview'
+                  ? 'bg-[#FF8000] border-[#FF8000] text-black'
+                  : 'bg-white/[0.04] border-white/10 text-white/80'
+              }`}
             >
               <LayoutGrid className="w-4 h-4" />
               <span>Overview</span>
@@ -153,42 +143,31 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
 
             <button
               onClick={() => handleNavClick('aicoach')}
-              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all ${activeTab === 'aicoach'
-                  ? 'bg-[#1E222A] border-[#1E222A] text-white'
-                  : 'bg-white border-[#E2E8F0] text-slate-700 hover:text-black'
-                }`}
+              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all ${
+                activeTab === 'aicoach'
+                  ? 'bg-[#FF8000] border-[#FF8000] text-black'
+                  : 'bg-white/[0.04] border-white/10 text-white/80'
+              }`}
             >
               <Activity className="w-4 h-4" />
-              <span>AI Coach</span>
+              <span>AICoach</span>
             </button>
 
             <button
               onClick={() => handleNavClick('duels')}
-              className={`p-3 rounded-2xl border flex items-center justify-between text-xs font-semibold transition-all ${activeTab === 'duels'
-                  ? 'bg-[#1E222A] border-[#1E222A] text-white'
-                  : 'bg-white border-[#E2E8F0] text-slate-700 hover:text-black'
-                }`}
+              className={`p-3 rounded-2xl border flex items-center justify-between text-xs font-semibold transition-all ${
+                activeTab === 'duels'
+                  ? 'bg-[#FF8000] border-[#FF8000] text-black'
+                  : 'bg-white/[0.04] border-white/10 text-white/80'
+              }`}
             >
               <div className="flex items-center gap-2.5">
                 <Swords className="w-4 h-4" />
                 <span>1v1 Duels</span>
               </div>
-              {nearbyDevices.length > 0 && (
-                <span className="bg-[#EAB308] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full font-mono">
-                  {nearbyDevices.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => handleNavClick('profile')}
-              className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-semibold transition-all ${activeTab === 'profile'
-                  ? 'bg-[#1E222A] border-[#1E222A] text-white'
-                  : 'bg-white border-[#E2E8F0] text-slate-700 hover:text-black'
-                }`}
-            >
-              <User className="w-4 h-4" />
-              <span>Profile</span>
+              <span className="bg-[#FFB800] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full font-mono">
+                1
+              </span>
             </button>
           </nav>
         )}

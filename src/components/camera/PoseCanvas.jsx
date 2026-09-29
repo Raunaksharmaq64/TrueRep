@@ -29,6 +29,7 @@ const POSE_CONNECTIONS = [
 function PoseCanvas({
   exercise = 'pushup', // 'pushup' | 'squat' | 'jumpingjack'
   isExpanded = false,
+  isSessionActive = true,
   onToggleExpand,
   onRepUpdate,
   onTelemetryUpdate,
@@ -210,6 +211,18 @@ function PoseCanvas({
     setIsCameraActive(false);
     setIsLoadingModel(false);
   }, []);
+
+  // Sync external isSessionActive trigger with camera state
+  useEffect(() => {
+    if (isSessionActive) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => {
+      stopCamera();
+    };
+  }, [isSessionActive]);
 
   // Toggle Camera Facing
   const toggleFacingMode = () => {
@@ -466,7 +479,7 @@ function PoseCanvas({
   }, [stopCamera]);
 
   return (
-    <div className="relative w-full h-full min-h-[420px] bg-[#02050c] rounded-2xl border border-slate-800/80 flex items-center justify-center overflow-hidden group">
+    <div className="relative w-full h-full min-h-[420px] bg-transparent flex items-center justify-center overflow-hidden group">
       {/* Dynamic Digital Auto-Framing Viewport Container */}
       <div 
         className="absolute inset-0 w-full h-full flex items-center justify-center transition-transform duration-300 ease-out origin-center"
@@ -493,26 +506,14 @@ function PoseCanvas({
         />
       </div>
 
-      {/* Inactive background pattern */}
-      {!isCameraActive && (
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a25_1px,transparent_1px),linear-gradient(to_bottom,#0f172a25_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-      )}
-
-      {/* Camera Off Placeholder & Controls */}
-      {!isCameraActive && (
-        <div className="relative z-20 flex flex-col items-center justify-center p-6 text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[#EAB308]">
-            <Camera className="w-8 h-8" />
-          </div>
-
-          <div>
-            <h3 className="text-lg font-bold text-white uppercase tracking-wider">
-              AI Pose Vision Camera
-            </h3>
-            <p className="text-slate-400 text-xs mt-1">
-              Offline-ready BlazePose 3D with Irreversible Error Latching & Bilateral Anti-Cheat.
+      {/* Camera Off Status & Errors */}
+      {!isCameraActive && (isLoadingModel || cameraError) && (
+        <div className="relative z-20 flex flex-col items-center justify-center p-6 text-center space-y-3 max-w-sm pointer-events-none">
+          {isLoadingModel && (
+            <p className="text-slate-400 text-xs font-['Arial_MT_Pro']">
+              Loading MediaPipe BlazePose 3D Model...
             </p>
-          </div>
+          )}
 
           {cameraError && (
             <div className="bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2">
@@ -520,24 +521,6 @@ function PoseCanvas({
               <span>{cameraError}</span>
             </div>
           )}
-
-          <button
-            onClick={startCamera}
-            disabled={isLoadingModel}
-            className="px-6 py-3 rounded-full bg-white text-[#18181B] hover:bg-[#EAB308] active:scale-95 font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-2"
-          >
-            {isLoadingModel ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin text-[#18181B]" />
-                <span>Loading Local Model...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 text-[#18181B]" />
-                <span>Start AI Camera</span>
-              </>
-            )}
-          </button>
         </div>
       )}
 

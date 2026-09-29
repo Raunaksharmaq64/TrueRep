@@ -22,7 +22,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F1EA] text-[#18181B] flex flex-col justify-between relative overflow-hidden select-none font-sans">
+    <div className="min-h-screen bg-[#050505] text-white flex flex-col justify-between relative overflow-hidden select-none font-sans">
       <Navbar activeTab={activeTab} onSelectTab={handleSelectTab} />
       
       {/* Background Blur & Dumbbell 360 Spin Transition Overlay */}
