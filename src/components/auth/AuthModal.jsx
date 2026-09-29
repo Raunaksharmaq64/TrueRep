@@ -41,7 +41,12 @@ export default function AuthModal({ isOpen, onClose }) {
       if (mode === 'login') {
         const { error } = await login(email, password);
         if (error) {
-          setErrorMsg(error.message || 'Invalid email or password credentials.');
+          const isRateLimit = error.message?.toLowerCase().includes('rate limit') || error.status === 429;
+          setErrorMsg(
+            isRateLimit
+              ? 'Email rate limit reached. Please wait 60 seconds before trying again.'
+              : error.message || 'Invalid email or password credentials.'
+          );
         } else {
           setSuccessMsg('Successfully signed in to TrueRep!');
           setTimeout(() => {
@@ -79,7 +84,12 @@ export default function AuthModal({ isOpen, onClose }) {
         );
 
         if (error) {
-          setErrorMsg(error.message || 'Signup failed. Please try again.');
+          const isRateLimit = error.message?.toLowerCase().includes('rate limit') || error.status === 429;
+          setErrorMsg(
+            isRateLimit
+              ? 'Email rate limit reached by authentication server. Please wait 1–2 minutes before requesting another confirmation email.'
+              : error.message || 'Signup failed. Please try again.'
+          );
         } else {
           setSuccessMsg('Account registered! Initial 3 competitive scores calculated.');
           setGeneratedScores(scores);
