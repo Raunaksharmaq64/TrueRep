@@ -206,7 +206,7 @@ function PoseCanvas({
       videoRef.current.srcObject = null;
     }
     if (animationFrameId.current) {
-      clearTimeout(animationFrameId.current);
+      cancelAnimationFrame(animationFrameId.current);
     }
     setIsCameraActive(false);
     setIsLoadingModel(false);

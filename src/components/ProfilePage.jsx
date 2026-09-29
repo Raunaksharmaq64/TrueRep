@@ -50,7 +50,8 @@ import {
   Droplets,
   Building2,
   Clock,
-  Music
+  Music,
+  LogOut
 } from 'lucide-react';
 import userAvatar from '../assets/athlete.jpg';
 import roninBanner from '../assets/ronin_banner.jpg';
@@ -59,7 +60,7 @@ import cyberpunk2D from '../assets/cyberpunk_2d.jpg';
 import { useAuth, useNearbyDevices } from '../hooks';
 
 export default function ProfilePage() {
-  const { profile, updateProfile, addXP } = useAuth();
+  const { profile, updateProfile, addXP, logout } = useAuth();
   const { nearbyDevices = [] } = useNearbyDevices() || {};
   const [copiedId, setCopiedId] = useState(false);
 
@@ -73,33 +74,11 @@ export default function ProfilePage() {
   }, [profile?.avatar_url, profile?.banner_url]);
 
   // PFP Live Adjustments State (Zoom, Rotate, Drag X/Y, Fit Mode)
-  const [pfpScale, setPfpScale] = useState(() => profile?.pfp_transform?.pfpScale ?? 100);    // 50% to 250%
-  const [pfpRotate, setPfpRotate] = useState(() => profile?.pfp_transform?.pfpRotate ?? 0);    // -180 to 180 deg
-  const [pfpX, setPfpX] = useState(() => profile?.pfp_transform?.pfpX ?? 0);              // -350px to +350px
-  const [pfpY, setPfpY] = useState(() => profile?.pfp_transform?.pfpY ?? 0);              // -220px to +220px
-  const [pfpFit, setPfpFit] = useState(() => profile?.pfp_transform?.pfpFit ?? 'cover');     // 'cover' | 'contain'
-
-  useEffect(() => {
-    if (profile?.pfp_transform) {
-      if (profile.pfp_transform.pfpScale !== undefined) setPfpScale(profile.pfp_transform.pfpScale);
-      if (profile.pfp_transform.pfpRotate !== undefined) setPfpRotate(profile.pfp_transform.pfpRotate);
-      if (profile.pfp_transform.pfpX !== undefined) setPfpX(profile.pfp_transform.pfpX);
-      if (profile.pfp_transform.pfpY !== undefined) setPfpY(profile.pfp_transform.pfpY);
-      if (profile.pfp_transform.pfpFit !== undefined) setPfpFit(profile.pfp_transform.pfpFit);
-    }
-  }, [profile?.pfp_transform]);
-
-  // Persist live transform changes to profile across site
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (updateProfile) {
-        updateProfile({
-          pfp_transform: { pfpScale, pfpRotate, pfpX, pfpY, pfpFit }
-        });
-      }
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [pfpScale, pfpRotate, pfpX, pfpY, pfpFit]);
+  const [pfpScale, setPfpScale] = useState(profile?.pfp_transform?.pfpScale ?? 100);
+  const [pfpRotate, setPfpRotate] = useState(profile?.pfp_transform?.pfpRotate ?? 0);
+  const [pfpX, setPfpX] = useState(profile?.pfp_transform?.pfpX ?? 0);
+  const [pfpY, setPfpY] = useState(profile?.pfp_transform?.pfpY ?? 0);
+  const [pfpFit, setPfpFit] = useState(profile?.pfp_transform?.pfpFit ?? 'cover');
 
   // Dragging PFP directly on canvas state
   const [isDraggingPfp, setIsDraggingPfp] = useState(false);
@@ -782,6 +761,37 @@ export default function ProfilePage() {
 
             </div>
 
+            {/* 3. SIGN OUT & SESSION CONTROL CARD */}
+            <div className="p-5 bg-gradient-to-b from-neutral-900/95 to-red-950/20 rounded-3xl outline outline-1 outline-red-500/30 hover:outline-red-500/70 shadow-[0_12px_32px_rgba(239,68,68,0.15)] shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.15)] transition-all duration-300 relative overflow-hidden group space-y-3">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-600/10 via-transparent to-red-600/5 opacity-50 group-hover:opacity-100 pointer-events-none transition-opacity duration-300" />
+              
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-red-500/10 outline outline-1 outline-red-500/30 flex items-center justify-center text-red-400 group-hover:scale-105 transition-transform duration-300 shadow-inner">
+                    <LogOut className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-white uppercase tracking-wider font-heading">
+                      SESSION CONTROL
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                      End active workout session & logout
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    if (logout) await logout();
+                  }}
+                  className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-[0_6px_20px_rgba(220,38,38,0.35)] cursor-pointer active:scale-95 shrink-0 border border-red-400/30"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+
           </div>
 
           {/* =================================================================== */}
@@ -1087,9 +1097,10 @@ export default function ProfilePage() {
 
           </div>
 
-        </div>
+
 
       </div>
+    </div>
 
       {/* MODAL 1: SETTINGS / PROFILE CUSTOMIZATION */}
       {showSettingsModal && (

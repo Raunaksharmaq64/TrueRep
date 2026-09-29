@@ -1,4 +1,5 @@
 import React, { useState, useEffect, createContext, useContext, useMemo } from 'react';
+import { CheckCircle2, LogOut, X, Sparkles, ShieldCheck } from 'lucide-react';
 import { 
   supabase, 
   isSupabaseConfigured, 
@@ -23,6 +24,14 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [authToast, setAuthToast] = useState(null);
+
+  const triggerAuthToast = (type, title, message) => {
+    setAuthToast({ type, title, message });
+    setTimeout(() => {
+      setAuthToast(null);
+    }, 3200);
+  };
   const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('truerep_user_profile');
@@ -140,6 +149,11 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       const prof = await getUserProfile(data.user.id);
       if (prof) setProfile(prev => ({ ...prev, ...prof }));
+      triggerAuthToast(
+        'login',
+        'LOGGED IN SUCCESSFULLY',
+        `Welcome back! Your TrueRep athlete session is now active.`
+      );
     }
     return { data, error };
   };
@@ -150,6 +164,11 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       const prof = await getUserProfile(data.user.id);
       if (prof) setProfile(prev => ({ ...prev, ...prof, ...healthData }));
+      triggerAuthToast(
+        'login',
+        'ACCOUNT REGISTERED',
+        `Welcome to TrueRep, ${displayName || username}! Competitive profile activated.`
+      );
     }
     return { data, error };
   };
@@ -157,6 +176,11 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     await signOutUser();
     setUser(null);
+    triggerAuthToast(
+      'logout',
+      'LOGGED OUT SUCCESSFULLY',
+      'Your active session has been terminated safely. See you next workout!'
+    );
   };
 
   const addXP = async (tutSeconds, reps, formScore, intensity = 1.0) => {
@@ -242,8 +266,57 @@ export function AuthProvider({ children }) {
       logout,
       addXP,
       processDuelResult,
-      updateProfile
+      updateProfile,
+      triggerAuthToast
     }}>
+      {/* HIGH-TECH AUTH TOAST NOTIFICATION OVERLAY */}
+      {authToast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] max-w-md w-[92%] sm:w-auto animate-bounce-in pointer-events-auto select-none">
+          <div className={`p-4 rounded-3xl outline outline-1 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex items-center gap-3.5 transition-all duration-300 ${
+            authToast.type === 'login'
+              ? 'bg-neutral-900/95 border-emerald-500/50 text-white shadow-[0_0_35px_rgba(16,185,129,0.35)]'
+              : 'bg-neutral-900/95 border-red-500/50 text-white shadow-[0_0_35px_rgba(239,68,68,0.35)]'
+          }`}>
+            {/* Pulse Badge Icon */}
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+              authToast.type === 'login'
+                ? 'bg-emerald-500/15 outline outline-1 outline-emerald-500/40 text-emerald-400'
+                : 'bg-red-500/15 outline outline-1 outline-red-500/40 text-red-400'
+            }`}>
+              {authToast.type === 'login' ? (
+                <CheckCircle2 className="w-6 h-6 text-emerald-400 animate-pulse" />
+              ) : (
+                <LogOut className="w-6 h-6 text-red-400 animate-pulse" />
+              )}
+            </div>
+
+            {/* Message Info */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-black uppercase tracking-wider font-mono ${
+                  authToast.type === 'login' ? 'text-emerald-400' : 'text-red-400'
+                }`}>
+                  {authToast.title}
+                </span>
+                <span className={`w-2 h-2 rounded-full animate-ping ${
+                  authToast.type === 'login' ? 'bg-emerald-400' : 'bg-red-400'
+                }`} />
+              </div>
+              <p className="text-slate-300 text-xs font-sans mt-0.5 leading-snug">
+                {authToast.message}
+              </p>
+            </div>
+
+            <button 
+              onClick={() => setAuthToast(null)}
+              className="p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {children}
     </AuthContext.Provider>
   );

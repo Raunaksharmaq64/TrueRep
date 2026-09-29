@@ -79,7 +79,7 @@ export default function Navbar({ activeTab = 'home', onSelectTab }) {
 
           {/* Right: Auth & Logged-In User Profile Capsule */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {user || profile ? (
+            {user ? (
               <button
                 onClick={() => handleNavClick('profile')}
                 className="group flex items-center gap-2 p-1.5 pl-2 pr-3.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-500/50 rounded-full backdrop-blur-md transition-all duration-200 cursor-pointer shadow-[inset_5px_3px_65px_0px_rgba(255,255,255,0.15)]"
