@@ -354,16 +354,31 @@ class DeviceNetworkManager {
       });
 
       this.hostPeer.on('error', (err) => {
-        console.warn('[TrueRep WebRTC] Room Host error:', err);
-        if (err && err.type === 'unavailable-id') {
-          console.log('[TrueRep WebRTC] Host ID taken by peer. Connecting to existing host...');
+        const isUnavailable = err && (
+          err.type === 'unavailable-id' ||
+          err.type === 'peer-unavailable' ||
+          (typeof err.message === 'string' && err.message.toLowerCase().includes('taken'))
+        );
+
+        if (isUnavailable) {
+          console.log('[TrueRep WebRTC] Room Host ID already active on network. Connecting as client node...');
+          if (this.hostPeer) {
+            try {
+              this.hostPeer.destroy();
+            } catch (e) {}
+            this.hostPeer = null;
+          }
           if (this.peer) {
             try {
               const conn = this.peer.connect(hostPeerId);
               conn.on('open', () => this.setupPeerConnection(conn));
             } catch (e) {}
           }
-        } else if (err && (err.type === 'network' || err.type === 'disconnected' || err.message?.includes('Lost connection'))) {
+          return;
+        }
+
+        console.warn('[TrueRep WebRTC] Room Host error:', err);
+        if (err && (err.type === 'network' || err.type === 'disconnected' || (typeof err.message === 'string' && err.message.includes('Lost connection')))) {
           try {
             if (this.hostPeer && !this.hostPeer.destroyed) {
               this.hostPeer.reconnect();
