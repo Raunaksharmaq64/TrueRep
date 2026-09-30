@@ -25,6 +25,10 @@ export function createRealtimeBoutChannel(channelName) {
   if (!supabase) return null;
 
   try {
+    const existing = supabase.getChannels().find(c => c.topic === `realtime:${channelName}` || c.topic === channelName || c.name === channelName);
+    if (existing) {
+      supabase.removeChannel(existing);
+    }
     const channel = supabase.channel(channelName);
     return channel;
   } catch (err) {
@@ -201,8 +205,14 @@ export function subscribeToUserProfileChanges(userId, onUpdate) {
   if (!supabase || !userId) return null;
 
   try {
+    const channelName = `user_profile_realtime_${userId}`;
+    const existing = supabase.getChannels().find(c => c.topic === `realtime:${channelName}` || c.topic === channelName || c.name === channelName);
+    if (existing) {
+      supabase.removeChannel(existing);
+    }
+
     const channel = supabase
-      .channel(`user_profile_realtime_${userId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },

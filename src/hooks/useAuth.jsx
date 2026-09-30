@@ -124,8 +124,9 @@ export function AuthProvider({ children }) {
     };
     window.addEventListener('focus', handleFocus);
 
+    let authSubscription = null;
     if (supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
           setUser(session.user);
           const prof = await getUserProfile(session.user.id);
@@ -134,13 +135,18 @@ export function AuthProvider({ children }) {
           setUser(null);
         }
       });
-
-      return () => {
-        subscription.unsubscribe();
-        window.removeEventListener('focus', handleFocus);
-        if (realtimeChannel) realtimeChannel.unsubscribe();
-      };
+      authSubscription = data?.subscription;
     }
+
+    return () => {
+      if (authSubscription) authSubscription.unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+      if (realtimeChannel && supabase) {
+        try {
+          supabase.removeChannel(realtimeChannel);
+        } catch (e) {}
+      }
+    };
   }, [user?.id]);
 
   const login = async (email, password) => {

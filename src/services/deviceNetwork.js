@@ -101,16 +101,8 @@ class DeviceNetworkManager {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
             {
               urls: 'turn:openrelay.metered.ca:80',
-              username: 'openrelay',
-              credential: 'openrelay'
-            },
-            {
-              urls: 'turn:openrelay.metered.ca:443',
               username: 'openrelay',
               credential: 'openrelay'
             },
@@ -172,6 +164,17 @@ class DeviceNetworkManager {
   _setupSupabaseChannel() {
     this.supabaseStatus = 'CONNECTING';
     try {
+      if (this.supabaseChannel && supabase) {
+        try {
+          supabase.removeChannel(this.supabaseChannel);
+        } catch (e) {}
+        this.supabaseChannel = null;
+      }
+      if (this.pingTimer) {
+        clearInterval(this.pingTimer);
+        this.pingTimer = null;
+      }
+
       this.supabaseChannel = createRealtimeBoutChannel('truerep_duels_hub');
 
       if (this.supabaseChannel) {
@@ -317,11 +320,6 @@ class DeviceNetworkManager {
               credential: 'openrelay'
             },
             {
-              urls: 'turn:openrelay.metered.ca:443',
-              username: 'openrelay',
-              credential: 'openrelay'
-            },
-            {
               urls: 'turn:openrelay.metered.ca:443?transport=tcp',
               username: 'openrelay',
               credential: 'openrelay'
@@ -346,6 +344,15 @@ class DeviceNetworkManager {
         });
       });
 
+      this.hostPeer.on('disconnected', () => {
+        console.warn('[TrueRep WebRTC] Room Host disconnected from signaling server. Auto-reconnecting...');
+        try {
+          if (this.hostPeer && !this.hostPeer.destroyed) {
+            this.hostPeer.reconnect();
+          }
+        } catch (e) {}
+      });
+
       this.hostPeer.on('error', (err) => {
         console.warn('[TrueRep WebRTC] Room Host error:', err);
         if (err && err.type === 'unavailable-id') {
@@ -356,6 +363,12 @@ class DeviceNetworkManager {
               conn.on('open', () => this.setupPeerConnection(conn));
             } catch (e) {}
           }
+        } else if (err && (err.type === 'network' || err.type === 'disconnected' || err.message?.includes('Lost connection'))) {
+          try {
+            if (this.hostPeer && !this.hostPeer.destroyed) {
+              this.hostPeer.reconnect();
+            }
+          } catch (e) {}
         }
       });
     } catch (e) {}
@@ -484,65 +497,8 @@ class DeviceNetworkManager {
   }
 
   reconnectSupabase() {
-    if (!createRealtimeBoutChannel) return;
-    try {
-      if (this.supabaseChannel) {
-        this.supabaseChannel.unsubscribe();
-      }
-      if (this.pingTimer) clearInterval(this.pingTimer);
-      this.supabaseChannel = createRealtimeBoutChannel('truerep_duels_hub');
-      if (this.supabaseChannel) {
-        this.supabaseChannel
-          .on('presence', { event: 'sync' }, () => {
-            const presenceState = this.supabaseChannel.presenceState();
-            Object.values(presenceState).forEach((presences) => {
-              presences.forEach((presence) => {
-                if (presence && presence.id && presence.id !== this.device.id) {
-                  this.registerDiscoveredDevice({
-                    ...presence,
-                    source: 'supabase',
-                    lastSeen: Date.now()
-                  });
-                }
-              });
-            });
-          })
-          .on('presence', { event: 'join' }, ({ newPresences }) => {
-            newPresences.forEach((p) => {
-              if (p && p.id !== this.device.id) {
-                this.registerDiscoveredDevice({ ...p, source: 'supabase', lastSeen: Date.now() });
-              }
-            });
-          })
-          .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-            leftPresences.forEach((p) => {
-              if (p && p.id) {
-                this.discoveredDevices.delete(p.id);
-              }
-            });
-            this.notifyListeners();
-          })
-          .on('broadcast', { event: 'bout_event' }, ({ payload }) => {
-            this.handleIncomingMessage(payload, 'supabase');
-          })
-          .subscribe(async (status) => {
-            console.log('[TrueRep Supabase] Reconnect status:', status);
-            this.supabaseStatus = status;
-            this.notifyListeners();
-            if (status === 'SUBSCRIBED' && this.supabaseChannel) {
-              await this.supabaseChannel.track({
-                id: this.device.id,
-                name: this.device.name,
-                type: this.device.type,
-                elo: this.device.elo,
-                status: this.device.status,
-                peerId: this.device.peerId || ''
-              });
-              this._startLatencyPing();
-            }
-          });
-      }
-    } catch (e) {}
+    console.log('[TrueRep Supabase] Reconnecting channel...');
+    this._setupSupabaseChannel();
   }
 
   registerDiscoveredDevice(deviceInfo) {
