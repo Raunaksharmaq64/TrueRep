@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, CameraOff, RefreshCw, AlertTriangle, Sparkles, Flame, Maximize2, Minimize2, FlipHorizontal, Compass, Sliders } from 'lucide-react';
+import { Camera, CameraOff, RefreshCw, AlertTriangle, Sparkles, Flame, Maximize2, Minimize2, FlipHorizontal, Compass, Sliders, Zap } from 'lucide-react';
 import { 
   getPoseLandmarker, 
+  checkDevicePerformanceTier,
   PushUpFSM, 
   SquatFSM, 
   JumpingJackFSM, 
@@ -56,6 +57,17 @@ function PoseCanvas({
   });
   const lastPerspectiveLabelRef = useRef('');
   const [isLowLight, setIsLowLight] = useState(false);
+
+  // Hardware Performance Tier & Power Saver Mode
+  const deviceTierRef = useRef(checkDevicePerformanceTier());
+  const [isPowerSaver, setIsPowerSaver] = useState(() => deviceTierRef.current.isLowEnd);
+  const isPowerSaverRef = useRef(isPowerSaver);
+  useEffect(() => {
+    isPowerSaverRef.current = isPowerSaver;
+  }, [isPowerSaver]);
+
+  // Adaptive inference interval (ms): 33ms (~30 FPS) for high-end, 50ms (~20 FPS) for low-end
+  const currentIntervalRef = useRef(deviceTierRef.current.isLowEnd ? 50 : 33);
 
   // FSM Instances & Biomechanical Engines
   const pushUpFSM = useRef(new PushUpFSM());
@@ -139,12 +151,14 @@ function PoseCanvas({
         );
       }
 
-      // Concurrently kick off model fetch and camera media acquisition
+      // Concurrently kick off model fetch and camera media acquisition with adaptive resolution
+      const isLowTier = isPowerSaverRef.current || deviceTierRef.current.isLowEnd;
       const mediaPromise = navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: facingMode,
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
+          width: isLowTier ? { ideal: 640, max: 854 } : { ideal: 1280, min: 640 },
+          height: isLowTier ? { ideal: 480, max: 480 } : { ideal: 720, min: 480 },
+          frameRate: { ideal: 30, max: 30 }
         },
         audio: false
       });
@@ -266,13 +280,22 @@ function PoseCanvas({
           setIsLowLight(luma < 30);
         }
 
-        // Run Pose Inference (~30 FPS / 33ms for smooth kinematics and depth tracking)
-        // High frame rate ensures rapid turnarounds and peak depths are never missed.
+        // Dynamic Adaptive Pose Inference (~30 FPS or ~20 FPS based on device capability)
         const perfNow = performance.now();
-        if (perfNow - lastInferenceTimeRef.current >= 33 && video.currentTime !== lastVideoTimeRef.current) {
+        const minInterval = isPowerSaverRef.current ? 50 : currentIntervalRef.current;
+        if (perfNow - lastInferenceTimeRef.current >= minInterval && video.currentTime !== lastVideoTimeRef.current) {
+          const inferStart = performance.now();
           lastInferenceTimeRef.current = perfNow;
           lastVideoTimeRef.current = video.currentTime;
           const poseResult = landmarker.detectForVideo(video, perfNow);
+          const inferDuration = performance.now() - inferStart;
+
+          // Dynamic adaptive latency scaling: if device GPU/CPU is struggling, adjust interval
+          if (inferDuration > 30) {
+            currentIntervalRef.current = Math.min(60, currentIntervalRef.current + 2);
+          } else if (inferDuration < 18 && !isPowerSaverRef.current && currentIntervalRef.current > 33) {
+            currentIntervalRef.current = Math.max(33, currentIntervalRef.current - 1);
+          }
 
           ctx.clearRect(0, 0, width, height);
 
@@ -439,7 +462,7 @@ function PoseCanvas({
             }
 
             // ALWAYS Draw Skeleton so the user sees tracking points on their body!
-            drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exercise, isMirroredRef.current);
+            drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exercise, isMirroredRef.current, isPowerSaverRef.current);
 
             // Overlay Readiness HUD when positioning, counting down, or searching
             if (!readiness.isExercising || readiness.state === 'COUNTDOWN') {
@@ -547,9 +570,30 @@ function PoseCanvas({
                 <span>DIM LIGHT DETECTED</span>
               </div>
             )}
+            {/* Performance Mode / Power-Saver Indicator Badge */}
+            <div className={`px-2.5 py-1 rounded-lg text-[10px] font-mono border backdrop-blur-md flex items-center gap-1.5 ${
+              isPowerSaver 
+                ? 'bg-amber-950/80 border-amber-500/50 text-amber-300' 
+                : 'bg-[#050914]/90 border-slate-700/80 text-cyan-400'
+            }`}>
+              <Zap className={`w-3 h-3 ${isPowerSaver ? 'text-amber-400' : 'text-cyan-400'}`} />
+              <span>{isPowerSaver ? '⚡ POWER SAVER ON' : '🚀 TURBO AI'}</span>
+            </div>
           </div>
 
           <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            <button
+              onClick={() => setIsPowerSaver(prev => !prev)}
+              title={isPowerSaver ? 'Power Saver Mode ON (Optimized for low-spec CPU/GPU)' : 'Turbo AI Mode ON (Maximum 60FPS visual FX)'}
+              className={`p-2 rounded-lg border backdrop-blur-md transition-colors flex items-center gap-1.5 text-xs font-semibold ${
+                isPowerSaver
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                  : 'bg-[#050914]/90 border-slate-700/80 text-slate-300 hover:text-white'
+              }`}
+            >
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline text-[10px] uppercase font-mono">{isPowerSaver ? 'Power-Saver' : 'Turbo'}</span>
+            </button>
             <button
               onClick={handleAutoCalibrateAngle}
               title="Auto-Calibrate Camera Angle (Auto-adapts to desk/floor height without touching laptop)"
@@ -603,8 +647,9 @@ function PoseCanvas({
 
 /**
  * Draws Cyberpunk glowing skeleton overlay, angle badges, and error lasers.
+ * Optimized with dual-vector stroking and single-pass path batching for low-end hardware.
  */
-function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exercise, isMirrored = false) {
+function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exercise, isMirrored = false, isPowerSaver = false) {
   const isFormValid = evalResult.isFormValid;
   const inDepth = evalResult.state === 'IN_DEPTH' || evalResult.state === 'AT_PEAK';
   const isCombo = evalResult.isComboActive;
@@ -613,26 +658,26 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
   const getX = (pt) => (isMirrored ? (1.0 - pt.x) * width : pt.x * width);
   const getY = (pt) => pt.y * height;
 
-  // Dynamic theme color
+  // Dynamic theme colors
   let boneColor = '#EAB308'; // Warm yellow default
-  let jointFill = '#ffffff';
+  let darkUnderglow = '#713f12';
 
   if (!isFormValid) {
     boneColor = '#ef4444'; // Red fault
+    darkUnderglow = '#7f1d1d';
   } else if (inDepth) {
     boneColor = '#10b981'; // Emerald green depth
+    darkUnderglow = '#064e3b';
   } else if (isCombo) {
     boneColor = '#f59e0b'; // Gold / Flame combo
+    darkUnderglow = '#78350f';
   }
 
-  // Draw Bones
+  // Draw Bones (Single batched path execution for high FPS)
   ctx.save();
-  ctx.lineWidth = isCombo ? 4 : 3;
-  ctx.strokeStyle = boneColor;
-  ctx.shadowColor = boneColor;
-  ctx.shadowBlur = isCombo ? 18 : 10;
   ctx.lineCap = 'round';
 
+  ctx.beginPath();
   for (const [i, j] of POSE_CONNECTIONS) {
     const p1 = landmarks[i];
     const p2 = landmarks[j];
@@ -643,12 +688,29 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
       (p1.visibility === undefined || p1.visibility > 0.25) &&
       (p2.visibility === undefined || p2.visibility > 0.25)
     ) {
-      ctx.beginPath();
       ctx.moveTo(getX(p1), getY(p1));
       ctx.lineTo(getX(p2), getY(p2));
-      ctx.stroke();
     }
   }
+
+  if (isPowerSaver) {
+    // Ultra-Fast Dual-Pass Vector Stroking (NO GPU shadowBlur penalty)
+    ctx.lineWidth = isCombo ? 7 : 5;
+    ctx.strokeStyle = darkUnderglow;
+    ctx.stroke();
+
+    ctx.lineWidth = isCombo ? 3.5 : 2.5;
+    ctx.strokeStyle = boneColor;
+    ctx.stroke();
+  } else {
+    // High-End Glowing Canvas Shadow
+    ctx.lineWidth = isCombo ? 4 : 3;
+    ctx.strokeStyle = boneColor;
+    ctx.shadowColor = boneColor;
+    ctx.shadowBlur = isCombo ? 14 : 8;
+    ctx.stroke();
+  }
+  ctx.restore();
 
   // Draw Spine Hazard Line if form is broken on push-ups
   if (!isFormValid && exercise === 'pushup') {
@@ -674,7 +736,13 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
   // Major biomechanical joints for enhanced visibility
   const MAJOR_JOINTS = new Set([11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]);
 
-  // Draw Joints with glowing high-contrast halos
+  // Batch Draw Joints
+  ctx.save();
+  if (!isPowerSaver) {
+    ctx.shadowColor = boneColor;
+    ctx.shadowBlur = 10;
+  }
+
   for (let i = 0; i < landmarks.length; i++) {
     const pt = landmarks[i];
     if (pt && (pt.visibility === undefined || pt.visibility > 0.12)) {
@@ -682,9 +750,6 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
       const y = getY(pt);
       const isMajor = MAJOR_JOINTS.has(i);
 
-      ctx.save();
-      ctx.shadowColor = boneColor;
-      ctx.shadowBlur = isMajor ? 14 : 6;
       ctx.beginPath();
       ctx.arc(x, y, isMajor ? (isCombo ? 7 : 6) : 4, 0, 2 * Math.PI);
       ctx.fillStyle = '#ffffff';
@@ -701,9 +766,9 @@ function drawCyberpunkSkeleton(ctx, landmarks, width, height, evalResult, exerci
         ctx.lineWidth = 1.2;
         ctx.stroke();
       }
-      ctx.restore();
     }
   }
+  ctx.restore();
 
   // Active vertex joints for visual guidance
   const isRight = evalResult.dominantProfile === 'right';

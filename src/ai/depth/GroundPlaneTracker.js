@@ -99,6 +99,9 @@ export class GroundPlaneTracker {
     };
   }
 
+  static _lumaCanvas = null;
+  static _lumaCtx = null;
+
   /**
    * Fast Canvas Luma / Brightness Check.
    * Samples a low-res 16x16 grid to determine if room is dim without impacting FPS.
@@ -108,10 +111,13 @@ export class GroundPlaneTracker {
   static estimateLuma(videoElement) {
     try {
       if (!videoElement || videoElement.readyState < 2) return 120;
-      const offscreen = document.createElement('canvas');
-      offscreen.width = 16;
-      offscreen.height = 16;
-      const ctx = offscreen.getContext('2d', { willReadFrequently: true });
+      if (!GroundPlaneTracker._lumaCanvas && typeof document !== 'undefined') {
+        GroundPlaneTracker._lumaCanvas = document.createElement('canvas');
+        GroundPlaneTracker._lumaCanvas.width = 16;
+        GroundPlaneTracker._lumaCanvas.height = 16;
+        GroundPlaneTracker._lumaCtx = GroundPlaneTracker._lumaCanvas.getContext('2d', { willReadFrequently: true });
+      }
+      const ctx = GroundPlaneTracker._lumaCtx;
       if (!ctx) return 120;
       ctx.drawImage(videoElement, 0, 0, 16, 16);
       const imgData = ctx.getImageData(0, 0, 16, 16).data;

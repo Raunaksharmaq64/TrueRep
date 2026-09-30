@@ -187,8 +187,8 @@ function DuelsPage({ onNavigate }) {
   const pendingRepBroadcastRef = useRef(null);
   const repBroadcastIntervalRef = useRef(null);
 
-  // Optional live peer video streaming
-  const [cameraStreamEnabled, setCameraStreamEnabled] = useState(true);
+  // Optional live peer video streaming (OFF by default for privacy & lower resource usage)
+  const [cameraStreamEnabled, setCameraStreamEnabled] = useState(false);
   const [isPlayerCameraOn, setIsPlayerCameraOn] = useState(true);
   const opponentVideoRef = useRef(null);
 

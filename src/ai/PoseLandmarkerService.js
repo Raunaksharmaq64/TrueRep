@@ -111,3 +111,24 @@ export async function getPoseLandmarker() {
 
   return initializationPromise;
 }
+
+/**
+ * Detects device performance tier based on CPU cores, RAM, and browser capabilities.
+ */
+export function checkDevicePerformanceTier() {
+  if (typeof navigator === 'undefined') return { isLowEnd: false, cores: 8, memory: 8 };
+
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory = navigator.deviceMemory || 4;
+  const ua = navigator.userAgent.toLowerCase();
+  const isMobile = /mobile|iphone|ipad|android|touch/.test(ua);
+
+  const isLowEnd = cores <= 4 || memory <= 4 || (isMobile && cores <= 6);
+
+  return {
+    isLowEnd,
+    cores,
+    memory,
+    isMobile
+  };
+}

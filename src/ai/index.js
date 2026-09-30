@@ -8,7 +8,7 @@ export { SquatFSM } from './SquatFSM.js';
 export { JumpingJackFSM } from './JumpingJackFSM.js';
 export { ExerciseClassifier } from './ExerciseClassifier.js';
 export { ViewpointLockoutEngine } from './ViewpointLockoutEngine.js';
-export { getPoseLandmarker } from './PoseLandmarkerService.js';
+export { getPoseLandmarker, checkDevicePerformanceTier } from './PoseLandmarkerService.js';
 
 // Master Prompt 1 Modular Subsystems
 export { BodyBoundingBox } from './framing/BodyBoundingBox.js';
